@@ -1,103 +1,71 @@
 const express = require('express');
 const router = express.Router();
-const { getDb } = require('../models/db');
+const db = require('../models/db');
 
 // Get user profile / statistics
 router.get('/profile/:userId', (req, res) => {
   const { userId } = req.params;
   
-  const db = getDb();
+  const stats = db.getUserStats(userId);
+  const recentEvents = db.getUserEvents(userId, 'play', 10);
   
-  // Get event counts
-  const stats = db.prepare(`
-    SELECT 
-      event_type,
-      COUNT(*) as count,
-      SUM(duration) as total_duration
-    FROM user_events
-    WHERE user_id = ?
-    GROUP BY event_type
-  `).all(userId);
+  // Get top artists from recent plays
+  const artistCounts = {};
+  const recentPlays = db.getUserEvents(userId, 'play', 50);
+  const playSongIds = recentPlays.map(e => e.songId);
+  const playSongs = db.getSongs(playSongIds);
   
-  const statsMap = {
-    play: { count: 0, totalDuration: 0 },
-    skip: { count: 0, totalDuration: 0 },
-    like: { count: 0 }
-  };
-  
-  stats.forEach(s => {
-    statsMap[s.event_type] = {
-      count: s.count,
-      totalDuration: s.total_duration || 0
-    };
+  playSongs.forEach(song => {
+    if (song && song.artistId) {
+      artistCounts[song.artistId] = (artistCounts[song.artistId] || 0) + 1;
+    }
   });
   
-  // Get top artists (from completed plays)
-  const topArtists = db.prepare(`
-    SELECT sf.artist_id, sf.artist_name, COUNT(*) as play_count
-    FROM user_events e
-    JOIN song_features sf ON e.song_id = sf.song_id
-    WHERE e.user_id = ? AND e.event_type = 'play' AND e.completed = 1
-    GROUP BY sf.artist_id
-    ORDER BY play_count DESC
-    LIMIT 10
-  `).all(userId);
-  
-  // Get top genres
-  const topGenres = db.prepare(`
-    SELECT sf.genre, COUNT(*) as count
-    FROM user_events e
-    JOIN song_features sf ON e.song_id = sf.song_id
-    WHERE e.user_id = ? AND e.event_type = 'play' AND e.completed = 1
-    GROUP BY sf.genre
-    ORDER BY count DESC
-    LIMIT 5
-  `).all(userId);
-  
-  // Get recent plays
-  const recentPlays = db.prepare(`
-    SELECT e.song_id, e.duration, e.completed, e.created_at,
-           sf.artist_name, sf.album_name
-    FROM user_events e
-    LEFT JOIN song_features sf ON e.song_id = sf.song_id
-    WHERE e.user_id = ? AND e.event_type = 'play'
-    ORDER BY e.created_at DESC
-    LIMIT 10
-  `).all(userId);
+  const topArtists = Object.entries(artistCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 10)
+    .map(([artistId, count]) => ({ artistId, count }));
   
   res.json({
     userId,
     statistics: {
-      totalPlays: statsMap.play.count,
-      totalSkips: statsMap.skip.count,
-      totalLikes: statsMap.like.count,
-      skipRate: statsMap.play.count > 0 
-        ? (statsMap.skip.count / statsMap.play.count * 100).toFixed(1) + '%' 
-        : '0%'
+      totalPlays: stats.play.count,
+      totalSkips: stats.skip.count,
+      totalLikes: stats.like.count,
+      skipRate: stats.play.count > 0 
+        ? ((stats.skip.count / stats.play.count) * 100).toFixed(1) + '%' 
+        : '0%',
     },
     topArtists,
-    topGenres,
-    recentPlays
+    recentPlays: recentEvents.map(e => ({
+      songId: e.songId,
+      duration: e.duration,
+      completed: e.completed,
+      createdAt: e.createdAt,
+    })),
   });
 });
 
-// Update song features (admin/sync)
+// Sync song data
 router.post('/sync-song', (req, res) => {
-  const { songId, artistId, artistName, albumId, albumName, duration, bpm, genre, publishTime } = req.body;
+  const { songId, artistId, artistName, albumId, albumName, duration, bpm, genre, publishTime, name, songName } = req.body;
   
   if (!songId) {
     return res.status(400).json({ error: 'songId is required' });
   }
   
-  const db = getDb();
-  
-  const stmt = db.prepare(`
-    INSERT OR REPLACE INTO song_features 
-    (song_id, artist_id, artist_name, album_id, album_name, duration, bpm, genre, publish_time, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-  `);
-  
-  stmt.run(songId, artistId, artistName, albumId, albumName, duration, bpm, genre, publishTime);
+  db.saveSong({
+    songId,
+    artistId,
+    artistName,
+    albumId,
+    albumName,
+    duration,
+    bpm,
+    genre,
+    publishTime,
+    name: name || songName,
+  });
   
   res.json({ success: true });
 });
@@ -110,24 +78,25 @@ router.post('/sync-songs', (req, res) => {
     return res.status(400).json({ error: 'songs array is required' });
   }
   
-  const db = getDb();
-  const stmt = db.prepare(`
-    INSERT OR REPLACE INTO song_features 
-    (song_id, artist_id, artist_name, album_id, album_name, duration, bpm, genre, publish_time, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-  `);
-  
-  const insertMany = db.transaction((songs) => {
-    for (const song of songs) {
-      stmt.run(
-        song.id, song.artistId, song.artistName, 
-        song.albumId, song.albumName,
-        song.duration, song.bpm, song.genre, song.publishTime
-      );
-    }
-  });
-  
-  insertMany(songs);
+  db.saveSongs(songs.map(s => ({
+    songId: s.id || s.songId,
+    artistId: s.artistId || s.artist?.id,
+    artistName: s.artist?.name || s.artistName,
+    albumId: s.album?.id || s.albumId,
+    albumName: s.album?.name || s.albumName,
+    duration: s.duration,
+    bpm: s.bpm,
+    genre: s.genre,
+    publishTime: s.publishTime,
+    name: s.name || s.songName,
+    // 扩展维度
+    mood: s.mood,
+    language: s.language,
+    decade: s.decade,
+    energy: s.energy,
+    danceability: s.danceability,
+    tags: s.tags,
+  })));
   
   res.json({ success: true, count: songs.length });
 });
