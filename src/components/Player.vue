@@ -188,9 +188,11 @@ import ButtonIcon from '@/components/ButtonIcon.vue';
 import VueSlider from 'vue-slider-component';
 import { goToListSource, hasListSource } from '@/utils/playList';
 import { formatTrackTime } from '@/utils/common';
+import playBehaviorTracker from '@/mixins/playBehaviorTracker';
 
 export default {
   name: 'Player',
+  mixins: [playBehaviorTracker],
   components: {
     ButtonIcon,
     VueSlider,

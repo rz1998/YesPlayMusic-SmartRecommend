@@ -128,6 +128,14 @@ const routes = [
     },
   },
   {
+    path: '/smart-recommend',
+    name: 'smartRecommend',
+    component: () => import('@/views/smartRecommend.vue'),
+    meta: {
+      requireLogin: true,
+    },
+  },
+  {
     path: '/lastfm/callback',
     name: 'lastfmCallback',
     component: () => import('@/views/lastfmCallback.vue'),
