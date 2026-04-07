@@ -31,6 +31,19 @@ if (process.env.NODE_ENV === 'production') {
   });
 }
 
-app.listen(PORT, () => {
-  console.log(`🎵 YesPlayMusic Recommendation Server running on port ${PORT}`);
-});
+// Initialize database then start server
+async function start() {
+  try {
+    const db = require('./models/db');
+    await db.initialize();
+    
+    app.listen(PORT, () => {
+      console.log(`🎵 YesPlayMusic Recommendation Server running on port ${PORT}`);
+    });
+  } catch (error) {
+    console.error('Failed to start server:', error);
+    process.exit(1);
+  }
+}
+
+start();
