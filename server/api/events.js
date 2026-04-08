@@ -16,13 +16,13 @@ router.post('/play', (req, res) => {
 
 // Record skip event
 router.post('/skip', (req, res) => {
-  const { userId, songId, skipTime } = req.body;
+  const { userId, songId, skipTime, songDuration } = req.body;
   
   if (!userId || !songId) {
     return res.status(400).json({ error: 'userId and songId are required' });
   }
 
-  const result = db.addEvent(userId, songId, 'skip', skipTime || 0, false);
+  const result = db.addEvent(userId, songId, 'skip', skipTime || 0, false, songDuration);
   res.json({ success: true, id: result.id });
 });
 

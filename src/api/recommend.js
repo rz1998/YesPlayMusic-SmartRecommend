@@ -1,12 +1,13 @@
 /**
  * Smart Recommendation API
- * 
+ *
  * 与网易云API区分开：
  * - 事件追踪记录播放/跳过/喜欢行为
  * - 推荐算法基于用户个人偏好
  */
 
-const RECOMMENDER_HOST = process.env.RECOMMENDER_HOST || 'http://localhost:3001';
+const RECOMMENDER_HOST =
+  process.env.RECOMMENDER_HOST || 'http://localhost:3001';
 
 /**
  * Record a play event
@@ -28,12 +29,13 @@ export function recordPlay(userId, songId, duration, completed = false) {
  * @param {string} userId - User ID
  * @param {number} songId - Song ID
  * @param {number} skipTime - Time when skipped (seconds)
+ * @param {number} songDuration - Total duration of the song (seconds)
  */
-export function recordSkip(userId, songId, skipTime) {
+export function recordSkip(userId, songId, skipTime, songDuration) {
   return fetch(`${RECOMMENDER_HOST}/api/event/skip`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ userId, songId, skipTime }),
+    body: JSON.stringify({ userId, songId, skipTime, songDuration }),
   }).then(r => r.json());
 }
 
@@ -67,7 +69,9 @@ export function getRecommendations(userId, limit = 20, excludePlayed = true) {
  * @param {string} userId - User ID
  */
 export function getUserProfile(userId) {
-  return fetch(`${RECOMMENDER_HOST}/api/user/profile/${userId}`).then(r => r.json());
+  return fetch(`${RECOMMENDER_HOST}/api/user/profile/${userId}`).then(r =>
+    r.json()
+  );
 }
 
 /**

@@ -43,10 +43,10 @@
 import { mapState } from 'vuex';
 import NProgress from 'nprogress';
 import TrackList from '@/components/TrackList.vue';
-import { 
-  getRecommendations, 
+import {
+  getRecommendations,
   getUserProfile,
-  recordPlay 
+  recordPlay,
 } from '@/api/recommend';
 
 export default {
@@ -101,8 +101,9 @@ export default {
     },
     // Called when a track is played
     onTrackPlay(track, duration) {
-      recordPlay(this.userId, track.id, duration)
-        .catch(err => console.error('Failed to record play:', err));
+      recordPlay(this.userId, track.id, duration).catch(err =>
+        console.error('Failed to record play:', err)
+      );
     },
   },
 };
@@ -157,7 +158,8 @@ export default {
     }
   }
 
-  .loading, .empty {
+  .loading,
+  .empty {
     text-align: center;
     padding: 64px;
     color: var(--color-text);
@@ -181,6 +183,8 @@ export default {
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 </style>

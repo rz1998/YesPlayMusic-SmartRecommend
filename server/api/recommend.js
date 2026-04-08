@@ -22,6 +22,26 @@ router.get('/debug', (req, res) => {
   });
 });
 
+// Debug endpoint
+router.get('/debug', (req, res) => {
+  const { userId } = req.query;
+  const likedSongIds = db.getUserLikedSongs(userId, 100);
+  const likedSongs = db.getSongs(likedSongIds);
+  const skippedSongIds = db.getUserSkippedSongs(userId, 100);
+  const skippedSongs = db.getSongs(skippedSongIds);
+  const likeVector = computePreferenceVector(likedSongs, 'like');
+  const skipVector = computePreferenceVector(skippedSongs, 'skip');
+  
+  res.json({
+    likedSongIds,
+    skippedSongIds,
+    likedSongs: likedSongs.map(s => ({id: s.songId, name: s.name, artist: s.artistName})),
+    skippedSongs: skippedSongs.map(s => ({id: s.songId, name: s.name, artist: s.artistName})),
+    likeVector,
+    skipVector
+  });
+});
+
 // Get personalized recommendations
 router.get('/', (req, res) => {
   const { userId, limit = 20, excludePlayed = true } = req.query;
@@ -35,13 +55,28 @@ router.get('/', (req, res) => {
     const likedSongIds = db.getUserLikedSongs(userId, 100);
     const likedSongs = db.getSongs(likedSongIds);
     
-    // 2. Get skipped songs
-    const skippedSongIds = db.getUserSkippedSongs(userId, 100);
+    // 2. Get skipped songs with details (including listen duration)
+    const skippedSongDetails = db.getUserSkippedSongsWithDetails(userId, 100);
+    const skippedSongsMap = {};
+    skippedSongDetails.forEach(d => {
+      skippedSongsMap[d.songId] = d;
+    });
+    const skippedSongIds = skippedSongDetails.map(d => d.songId);
     
     // 3. Calculate user preference vector
     const likeVector = computePreferenceVector(likedSongs, 'like');
     const skippedSongs = db.getSongs(skippedSongIds);
-    const skipVector = computePreferenceVector(skippedSongs, 'skip');
+    // Build events array with duration info for dynamic skip weight
+    const skipEvents = skippedSongDetails.map(d => {
+      const song = skippedSongs.find(s => s.songId === d.songId);
+      return {
+        songId: d.songId,
+        listenDuration: d.listenDuration,
+        songDuration: d.songDuration,
+        ...song,
+      };
+    });
+    const skipVector = computePreferenceVector(skipEvents, 'skip');
     
     // 4. Get candidate songs
     const candidates = db.getAllSongs(500);
@@ -126,12 +161,13 @@ function getDecade(publishTime) {
   return '20s';
 }
 
-// Helper: Compute preference vector from song list
+// Helper: Compute preference vector from song list or events array
+// events: array of { songId, listenDuration, songDuration, ...songData } for skip events
+// songs: array of song objects for like/play events
 function computePreferenceVector(songs, eventType) {
   if (!songs || songs.length === 0) return null;
   
-  const weights = { play: 1, like: 3, skip: -1 };
-  const weight = weights[eventType] || 1;
+  const baseWeights = { play: 1, like: 3, skip: -1 };
   
   const vector = {
     artistFreq: {},
@@ -146,6 +182,20 @@ function computePreferenceVector(songs, eventType) {
   };
   
   songs.forEach(song => {
+    // Calculate dynamic weight for skip events based on listen duration
+    let weight;
+    if (eventType === 'skip') {
+      // 基于收听时长计算惩罚权重：听得越多，惩罚越轻；听得越少，惩罚越重
+      if (song.listenDuration && song.songDuration && song.songDuration > 0) {
+        const listenRatio = Math.min(1, song.listenDuration / song.songDuration);
+        weight = -1 * (1 - listenRatio);  // 0% 收听 = -1.0, 90% 收听 = -0.1
+      } else {
+        weight = -1;  // 兜底：无法确定时长时使用完整惩罚
+      }
+    } else {
+      weight = baseWeights[eventType] || 1;
+    }
+    
     const artistKey = song.artistId || song.artistName || '';
     if (artistKey) {
       vector.artistFreq[artistKey] = (vector.artistFreq[artistKey] || 0) + weight;

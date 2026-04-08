@@ -29,6 +29,15 @@ async function initDb() {
   if (fs.existsSync(DB_FILE)) {
     const buffer = fs.readFileSync(DB_FILE);
     db = new SQL.Database(buffer);
+    
+    // Migration: add song_duration column if it doesn't exist
+    try {
+      db.run(`ALTER TABLE user_events ADD COLUMN song_duration INTEGER DEFAULT 0`);
+      console.log('✅ Migrated: added song_duration column');
+      saveDb();
+    } catch (e) {
+      // Column already exists or other error - ignore
+    }
   } else {
     db = new SQL.Database();
     // Create tables
@@ -39,6 +48,7 @@ async function initDb() {
         song_id TEXT NOT NULL,
         event_type TEXT NOT NULL,
         duration INTEGER DEFAULT 0,
+        song_duration INTEGER DEFAULT 0,
         completed INTEGER DEFAULT 0,
         created_at TEXT DEFAULT CURRENT_TIMESTAMP
       );
@@ -106,14 +116,14 @@ function run(sql, params = []) {
 }
 
 // Event operations
-function addEvent(userId, songId, eventType, duration = 0, completed = false) {
+function addEvent(userId, songId, eventType, duration = 0, completed = false, songDuration = null) {
   const id = uuidv4();
   run(
-    `INSERT INTO user_events (id, user_id, song_id, event_type, duration, completed, created_at) 
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    [id, userId, String(songId), eventType, duration, completed ? 1 : 0, new Date().toISOString()]
+    `INSERT INTO user_events (id, user_id, song_id, event_type, duration, song_duration, completed, created_at) 
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    [id, userId, String(songId), eventType, duration, songDuration || 0, completed ? 1 : 0, new Date().toISOString()]
   );
-  return { id, userId, songId, eventType, duration, completed };
+  return { id, userId, songId, eventType, duration, songDuration, completed };
 }
 
 function getUserEvents(userId, eventType = null, limit = 100) {
@@ -128,7 +138,16 @@ function getUserEvents(userId, eventType = null, limit = 100) {
   sql += ` ORDER BY created_at DESC LIMIT ?`;
   params.push(limit);
   
-  return query(sql, params);
+  const results = query(sql, params);
+  return results.map(row => ({
+    id: row.id,
+    userId: row.user_id,
+    songId: row.song_id,
+    eventType: row.event_type,
+    duration: row.duration,
+    completed: row.completed === 1,
+    createdAt: row.created_at,
+  }));
 }
 
 function getUserLikedSongs(userId, limit = 100) {
@@ -149,6 +168,21 @@ function getUserSkippedSongs(userId, limit = 100) {
     [userId, limit]
   );
   return results.map(r => r.song_id);
+}
+
+function getUserSkippedSongsWithDetails(userId, limit = 100) {
+  const results = query(
+    `SELECT song_id, duration as listen_duration, song_duration 
+     FROM user_events 
+     WHERE user_id = ? AND event_type = 'skip' 
+     ORDER BY created_at DESC LIMIT ?`,
+    [userId, limit]
+  );
+  return results.map(r => ({
+    songId: r.song_id,
+    listenDuration: r.listen_duration,
+    songDuration: r.song_duration,
+  }));
 }
 
 // Song operations
@@ -193,7 +227,7 @@ function saveSongs(songsArray) {
 
 function getSong(songId) {
   const results = query(`SELECT * FROM song_features WHERE song_id = ?`, [String(songId)]);
-  return results.length > 0 ? results[0] : null;
+  return results.length > 0 ? normalizeSong(results[0]) : null;
 }
 
 function getSongs(songIds) {
@@ -203,11 +237,34 @@ function getSongs(songIds) {
     `SELECT * FROM song_features WHERE song_id IN (${placeholders})`,
     songIds.map(String)
   );
-  return results;
+  return results.map(normalizeSong);
+}
+
+function normalizeSong(row) {
+  // Convert snake_case from SQLite to camelCase for JavaScript
+  return {
+    songId: row.song_id,
+    artistId: row.artist_id,
+    artistName: row.artist_name,
+    albumId: row.album_id,
+    albumName: row.album_name,
+    duration: row.duration,
+    bpm: row.bpm,
+    genre: row.genre,
+    publishTime: row.publish_time,
+    mood: row.mood,
+    language: row.language,
+    decade: row.decade,
+    energy: row.energy,
+    danceability: row.danceability,
+    tags: row.tags ? JSON.parse(row.tags) : null,
+    name: row.name,
+  };
 }
 
 function getAllSongs(limit = 500) {
-  return query(`SELECT * FROM song_features ORDER BY updated_at DESC LIMIT ?`, [limit]);
+  const results = query(`SELECT * FROM song_features ORDER BY updated_at DESC LIMIT ?`, [limit]);
+  return results.map(normalizeSong);
 }
 
 // User profile operations
@@ -266,6 +323,7 @@ module.exports = {
   getUserEvents,
   getUserLikedSongs,
   getUserSkippedSongs,
+  getUserSkippedSongsWithDetails,
   saveSong,
   saveSongs,
   getSong,
