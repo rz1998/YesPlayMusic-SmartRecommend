@@ -90,9 +90,9 @@ module.exports = {
       builderOptions: {
         productName: 'YesPlayMusic',
         copyright: 'Copyright © YesPlayMusic',
-        // version 从 package.json 读取，由 CI 在构建前更新
+        // version 从环境变量 ARTIFACT_VERSION 读取（CI自动设置，去掉v前缀）
         extraMetadata: {
-          version: require('./package.json').version,
+          version: process.env.ARTIFACT_VERSION ? process.env.ARTIFACT_VERSION.replace(/^v/, '') : require('./package.json').version,
         },
         // compression: "maximum", // 机器好的可以打开，配置压缩，开启后会让 .AppImage 格式的客户端启动缓慢
         asar: true,
