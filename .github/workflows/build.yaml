@@ -33,6 +33,14 @@ jobs:
       - name: Install dependencies
         run: yarn install --ignore-engines
 
+      - name: Update version from git tag
+        run: |
+          # 提取tag版本号 (移除v前缀)
+          VERSION=${GITHUB_REF#refs/tags/v}
+          # 更新package.json版本
+          node -e "const pkg=require('./package.json'); pkg.version='$VERSION'; require('fs').writeFileSync('package.json', JSON.stringify(pkg, null, 2));"
+          echo "Updated version to $VERSION"
+
       - name: Build Electron app
         run: npx vue-cli-service electron:build
         env:
