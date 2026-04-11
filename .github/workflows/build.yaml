@@ -1,8 +1,5 @@
 name: Release
 
-env:
-  YARN_INSTALL_NOPT: yarn add --ignore-platform --ignore-optional
-
 on:
   push:
     branches:
@@ -14,9 +11,6 @@ on:
 jobs:
   release:
     runs-on: ${{ matrix.os }}
-    env:
-      SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.snapcraft_token }}
-
     strategy:
       matrix:
         os: [macos-latest, windows-latest, ubuntu-22.04]
@@ -27,49 +21,13 @@ jobs:
         with:
           submodules: 'recursive'
 
-      - name: Install Node.js, NPM and Yarn
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'yarn'
 
-      - name: Install RPM & Pacman (on Ubuntu)
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update &&
-          sudo apt-get install --no-install-recommends -y rpm &&
-          sudo apt-get install --no-install-recommends -y libarchive-tools &&
-          sudo apt-get install --no-install-recommends -y libopenjp2-tools
-
-      - name: Install Snapcraft (on Ubuntu)
-        uses: samuelmeuli/action-snapcraft@v3
-        if: startsWith(matrix.os, 'ubuntu')
-
-      - name: Install dependencies and get UNM version
-        id: get_unm_version
-        run: |
-          yarn --ignore-optional
-          unm_version=$(node -e "console.log(require('./node_modules/@unblockneteasemusic/rust-napi/package.json').version)")
-          echo "unmver=${unm_version}" >> $GITHUB_OUTPUT
-
-      - name: Install UNM dependencies for Windows
-        if: runner.os == 'Windows'
-        run: |
-          yarn add --ignore-platform --ignore-optional @unblockneteasemusic/rust-napi-win32-x64-msvc@${{ steps.get_unm_version.outputs.unmver }}
-
-      - name: Install UNM dependencies for macOS
-        if: runner.os == 'macOS'
-        run: |
-          yarn add --ignore-platform --ignore-optional @unblockneteasemusic/rust-napi-darwin-x64@${{ steps.get_unm_version.outputs.unmver }}
-          yarn add --ignore-platform --ignore-optional @unblockneteasemusic/rust-napi-darwin-arm64@${{ steps.get_unm_version.outputs.unmver }}
-          yarn add --ignore-platform --ignore-optional dmg-license
-
-      - name: Install UNM dependencies for Linux
-        if: runner.os == 'Linux'
-        run: |
-          yarn add --ignore-platform --ignore-optional @unblockneteasemusic/rust-napi-linux-x64-gnu@${{ steps.get_unm_version.outputs.unmver }}
-          yarn add --ignore-platform --ignore-optional @unblockneteasemusic/rust-napi-linux-arm64-gnu@${{ steps.get_unm_version.outputs.unmver }}
-          yarn add --ignore-platform --ignore-optional @unblockneteasemusic/rust-napi-linux-arm-gnueabihf@${{ steps.get_unm_version.outputs.unmver }}
+      - name: Install dependencies
+        run: yarn install
 
       - name: Build/release Electron app
         uses: samuelmeuli/action-electron-builder@v1.6.0
@@ -80,14 +38,8 @@ jobs:
           VUE_APP_LASTFM_API_KEY: 09c55292403d961aa517ff7f5e8a3d9c
           VUE_APP_LASTFM_API_SHARED_SECRET: 307c9fda32b3904e53654baff215cb67
         with:
-          # GitHub token, automatically provided to the action
-          # (No need to define this secret in the repo settings)
           github_token: ${{ secrets.github_token }}
-
-          # If the commit is tagged with a version (e.g. "v1.0.0"),
-          # release the app after building
           release: ${{ startsWith(github.ref, 'refs/tags/v') }}
-
           use_vue_cli: true
 
       - uses: actions/upload-artifact@v4
