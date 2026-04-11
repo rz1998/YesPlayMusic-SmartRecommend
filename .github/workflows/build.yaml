@@ -1,5 +1,8 @@
 name: Release
 
+permissions:
+  contents: write
+
 on:
   push:
     branches:
@@ -57,3 +60,33 @@ jobs:
           name: YesPlayMusic-linux
           path: dist_electron/*.AppImage
           if-no-files-found: ignore
+
+  create-release:
+    needs: release
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Delete existing release
+        run: |
+          gh release delete ${{ github.ref_name }} --repo ${{ github.repository }} --yes || true
+
+      - name: Create Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd artifacts
+          # 先创建release
+          gh release create ${{ github.ref_name }} \
+            --title 'YesPlayMusic ${{ github.ref_name }}' \
+            --notes 'Automatic release from GitHub Actions' \
+            --repo ${{ github.repository }}
+          # 上传所有安装包文件
+          find . -type f \( -name '*.exe' -o -name '*.dmg' -o -name '*.AppImage' \) 2>/dev/null | \
+          while IFS= read -r file; do
+            gh release upload ${{ github.ref_name }} "$file" --repo ${{ github.repository }} || true
+          done
