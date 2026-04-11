@@ -176,21 +176,48 @@ const skipWeight = -1 * (1 - listenRatio);
 
 ## 第四部分：编译安装指南
 
-### Windows 用户
+### 🚀 GitHub Actions 自动编译（本项目推荐方式）
 
-#### 方式一：下载安装包（推荐）
+本项目配置了 GitHub Actions CI/CD，**推送版本标签时自动编译**三个平台的安装包。
 
-1. 访问 [Releases 页面](https://github.com/qier222/YesPlayMusic/releases)
+#### 自动编译触发方式
+
+```bash
+# 1. 克隆本仓库
+git clone --recursive https://github.com/rz1998/YesPlayMusic-SmartRecommend.git
+cd YesPlayMusic-SmartRecommend
+
+# 2. 创建版本标签并推送
+git tag v0.4.11
+git push origin v0.4.11
+```
+
+推送标签后，GitHub Actions 会自动构建：
+- ✅ **macOS** - 生成 .dmg 安装包
+- ✅ **Windows** - 生成 .exe 安装包
+- ✅ **Linux** - 生成 .AppImage 等安装包
+
+构建完成后，在 GitHub Releases 页面下载对应平台的安装包。
+
+---
+
+### 各操作系统安装
+
+#### Windows 用户
+
+**方式一：下载安装包（推荐）**
+
+1. 访问 [Releases 页面](https://github.com/rz1998/YesPlayMusic-SmartRecommend/releases)
 2. 下载 Windows 版本安装包（.exe 或 .msi）
 3. 双击安装即可
 
-#### 方式二：Scoop 安装
+**方式二：Scoop 安装**
 
 ```bash
 scoop install extras/yesplaymusic
 ```
 
-#### 方式三：从源码打包
+**方式三：从源码打包**
 
 ```bash
 # 1. 安装 Node.js 和 Yarn
@@ -198,8 +225,8 @@ scoop install extras/yesplaymusic
 # Yarn: npm install -g yarn
 
 # 2. 克隆仓库
-git clone --recursive https://github.com/qier222/YesPlayMusic.git
-cd YesPlayMusic
+git clone --recursive https://github.com/rz1998/YesPlayMusic-SmartRecommend.git
+cd YesPlayMusic-SmartRecommend
 
 # 3. 安装依赖
 yarn install
@@ -213,7 +240,7 @@ yarn electron:build --windows nsis:ia32    # Windows 32位
 yarn electron:build --windows nsis:arm64    # Windows ARM
 ```
 
-#### 方式四：Docker 部署
+**方式四：Docker 部署**
 
 ```bash
 # 构建镜像
@@ -227,19 +254,19 @@ docker run -d --name YesPlayMusic -p 80:80 yesplaymusic
 
 ### macOS 用户
 
-#### 方式一：下载安装包（推荐）
+**方式一：下载安装包（推荐）**
 
-1. 访问 [Releases 页面](https://github.com/qier222/YesPlayMusic/releases)
+1. 访问 [Releases 页面](https://github.com/rz1998/YesPlayMusic-SmartRecommend/releases)
 2. 下载 macOS 版本安装包（.dmg）
 3. 拖动到应用程序文件夹即可
 
-#### 方式二：Homebrew 安装
+**方式二：Homebrew 安装**
 
 ```bash
 brew install --cask yesplaymusic
 ```
 
-#### 方式三：从源码打包
+**方式三：从源码打包**
 
 ```bash
 # 1. 安装 Node.js 和 Yarn
@@ -247,8 +274,8 @@ brew install --cask yesplaymusic
 # Yarn: npm install -g yarn
 
 # 2. 克隆仓库
-git clone --recursive https://github.com/qier222/YesPlayMusic.git
-cd YesPlayMusic
+git clone --recursive https://github.com/rz1998/YesPlayMusic-SmartRecommend.git
+cd YesPlayMusic-SmartRecommend
 
 # 3. 安装依赖
 yarn install
@@ -266,13 +293,13 @@ yarn electron:build --macos dir:x64      # macOS x64 (Intel)
 
 ### Linux 用户
 
-#### 方式一：下载安装包（推荐）
+**方式一：下载安装包（推荐）**
 
-1. 访问 [Releases 页面](https://github.com/qier222/YesPlayMusic/releases)
+1. 访问 [Releases 页面](https://github.com/rz1998/YesPlayMusic-SmartRecommend/releases)
 2. 下载对应架构的安装包（.deb, .AppImage 等）
 3. 使用包管理器安装
 
-#### 方式二：Docker 部署
+**方式二：Docker 部署**
 
 ```bash
 # 构建镜像
@@ -282,7 +309,7 @@ docker build -t yesplaymusic .
 docker run -d --name YesPlayMusic -p 80:80 yesplaymusic
 ```
 
-#### 方式三：从源码打包
+**方式三：从源码打包**
 
 ```bash
 # 1. 安装 Node.js 和 Yarn
@@ -290,8 +317,8 @@ docker run -d --name YesPlayMusic -p 80:80 yesplaymusic
 # Yarn: npm install -g yarn
 
 # 2. 克隆仓库
-git clone --recursive https://github.com/qier222/YesPlayMusic.git
-cd YesPlayMusic
+git clone --recursive https://github.com/rz1998/YesPlayMusic-SmartRecommend.git
+cd YesPlayMusic-SmartRecommend
 
 # 3. 安装依赖
 yarn install
