@@ -91,7 +91,9 @@ module.exports = {
         productName: 'YesPlayMusic',
         copyright: 'Copyright © YesPlayMusic',
         // version 从 package.json 读取，由 CI 在构建前更新
-        appVersion: require('./package.json').version,
+        extraMetadata: {
+          version: require('./package.json').version,
+        },
         // compression: "maximum", // 机器好的可以打开，配置压缩，开启后会让 .AppImage 格式的客户端启动缓慢
         asar: true,
         publish: [
