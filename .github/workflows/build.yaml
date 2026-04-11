@@ -25,10 +25,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'yarn'
 
       - name: Install dependencies
-        run: yarn install --network-timeout 100000
+        run: npm install
 
       - name: Build/release Electron app
         run: npx vue-cli-service electron:build
