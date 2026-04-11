@@ -37,7 +37,6 @@
     "dayjs": "^1.8.36",
     "dexie": "^3.0.3",
     "discord-rich-presence": "^0.0.8",
-    "electron-builder": "^23.0.0",
     "electron-context-menu": "^3.1.2",
     "electron-debug": "^3.1.0",
     "electron-devtools-installer": "^3.2",
@@ -95,7 +94,8 @@
     "sass": "^1.26.11",
     "sass-loader": "^10.0.2",
     "vue-cli-plugin-electron-builder": "~2.1.1",
-    "vue-template-compiler": "^2.6.11"
+    "vue-template-compiler": "^2.6.11",
+    "electron-builder": "^23.0.0"
   },
   "resolutions": {
     "icon-gen": "3.0.0",
