@@ -30,6 +30,13 @@
       <div class="for-you-row">
         <DailyTracksCard ref="DailyTracksCard" />
         <FMCard />
+        <router-link to="/smart-recommend" class="smart-recommend-card">
+          <div class="card-icon">🧠</div>
+          <div class="card-text">
+            <div class="card-title">智能推荐</div>
+            <div class="card-subtitle">越用越懂你</div>
+          </div>
+        </router-link>
       </div>
     </div>
     <div class="index-row">
@@ -198,8 +205,45 @@ footer {
 
 .for-you-row {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 24px;
   margin-bottom: 78px;
+}
+
+.smart-recommend-card {
+  display: flex;
+  align-items: center;
+  padding: 24px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 12px;
+  color: white;
+  text-decoration: none;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.smart-recommend-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(102, 126, 234, 0.4);
+}
+
+.smart-recommend-card .card-icon {
+  font-size: 48px;
+  margin-right: 16px;
+}
+
+.smart-recommend-card .card-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.smart-recommend-card .card-title {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.smart-recommend-card .card-subtitle {
+  font-size: 12px;
+  opacity: 0.8;
+  margin-top: 4px;
 }
 </style>
