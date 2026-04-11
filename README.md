@@ -36,38 +36,80 @@
 
 ---
 
-# 🤖 智能推荐系统 (Smart Recommend)
+# YesPlayMusic - 智能推荐版
 
-> 🎵 **AI 制作** - 由 AI 团队协作开发，基于用户行为智能推荐歌曲
+---
 
-## ✨ 智能推荐特性
+## 第一部分：项目起源与简介
 
-- 🎯 **个性化推荐** - 基于用户的播放、点赞、跳过行为构建用户画像
-- ⚖️ **动态 Skip Penalty** - 根据收听比例智能调整跳过惩罚权重
-- 🎭 **多维度匹配** - 艺术家、流派、情绪、语言、年代、BPM、能量值
+### 项目起源
+
+本项目源自 **YesPlayMusic**（原项目地址：https://github.com/qier222/YesPlayMusic），由 [@qier222](https://github.com/qier222) 开发的高颜值第三方网易云音乐播放器。
+
+YesPlayMusic 是一个开源的网易云音乐客户端，使用 Vue.js 开发，提供美观的界面和丰富的功能，支持 Windows、macOS、Linux 多平台。
+
+### 本项目扩展
+
+本项目在原版基础上进行了功能扩展，主要增加了**智能推荐系统**，由 AI 团队协作开发实现。基于用户行为数据，构建个性化推荐模型，为用户推荐更符合口味的歌曲。
+
+---
+
+## 第二部分：为什么进行修改
+
+### 网易云音乐推荐算法的问题
+
+网易云音乐的推荐算法存在以下问题：
+
+1. **推荐同质化严重** - 推荐的歌曲反复出现，缺乏新鲜感
+2. **过度依赖热度** - 热门歌曲霸占推荐位，小众优质音乐难以被发现
+3. **用户行为利用不足** - 点赞、跳过等行为信号没有被充分利用
+4. **缺乏个性化反馈** - 推荐结果与用户实际偏好匹配度不高
+
+### 本项目的改进目标
+
+针对上述问题，本项目开发了一套**智能推荐系统**，具有以下特点：
+
+- 🎯 **真正个性化** - 基于用户真实行为（播放、点赞、跳过）构建用户画像
+- ⚖️ **动态权重调整** - Skip行为根据收听比例动态计算惩罚力度
+- 🎭 **多维度匹配** - 综合考虑艺术家、流派、情绪、语言、年代、BPM、能量值
 - 🔄 **实时学习** - 用户行为实时更新推荐模型
 
-## 🎯 推荐算法核心
+---
 
-### 1. 用户行为追踪
+## 第三部分：推荐算法详解
+
+### 1. 用户行为追踪系统
+
+推荐系统自动追踪以下用户行为：
 
 | 事件 | 权重 | 说明 |
 |------|------|------|
 | `like` | +3 | 用户点赞歌曲 |
-| `play` | +1 | 用户完整播放 |
-| `skip` | **动态** | 用户跳过（根据收听比例惩罚） |
+| `play` | +1 | 用户完整播放歌曲 |
+| `skip` | **动态** | 用户跳过（根据收听比例动态惩罚） |
+
+**数据追踪维度**：
+- 播放完成率 = 实际收听时长 / 歌曲总时长
+- 跳过行为 = 跳过时间点、收听比例
+- 点赞/取消点赞 = 双向追踪
+- 歌曲特征 = 流派、情绪、语言、年代、BPM、能量值
 
 ### 2. 动态 Skip Penalty（核心创新）
+
+传统推荐系统的skip惩罚是固定的，本项目的核心创新在于**动态计算skip权重**：
 
 ```javascript
 // 基于收听时长计算惩罚权重
 const listenRatio = Math.min(1, listenDuration / songDuration);
 const skipWeight = -1 * (1 - listenRatio);
-// 0% 收听 = -1.0 (完整惩罚)
-// 90% 收听 = -0.1 (轻微惩罚)
+
+// 0% 收听 = -1.0 (完整惩罚，说明完全不喜欢)
+// 90% 收听 = -0.1 (轻微惩罚，可能是外部原因导致跳过)
 ```
 
-**设计原理**：听得少就跳过说明强烈不匹配，听得多才跳过可能是外部原因。
+**设计原理**：
+- 如果用户只听了 10% 就跳过，说明对这首歌强烈不匹配，给予 -0.9 的惩罚
+- 如果用户听了 90% 才跳过，可能是突然有事等原因，给予 -0.1 的轻微惩罚
 
 ### 3. 推荐评分公式
 
@@ -75,19 +117,35 @@ const skipWeight = -1 * (1 - listenRatio);
 最终分数 = 喜好匹配分 - 1.5 × 排斥匹配分
 ```
 
-### 4. 匹配维度权重
+- **喜好匹配分**：基于用户喜欢的歌曲特征计算
+- **排斥匹配分**：基于用户跳过或不喜欢的歌曲特征计算
+- 系数 1.5 表示排斥惩罚的权重略高于喜好奖励
 
-| 维度 | 喜好权重 | 排斥权重 |
-|------|----------|----------|
-| 艺术家 | 0.50 | 0.50 |
-| 流派 | 0.30 | 0.30 |
-| BPM相似度 | 0.10 | - |
-| 情绪 | 0.20 | 0.20 |
-| 语言 | 0.25 | 0.25 |
-| 年代 | 0.10 | 0.10 |
-| 能量相似度 | 0.05 | - |
+### 4. 多维度匹配权重
 
-## 🏗️ 系统架构
+#### 喜好权重（用户喜欢的歌曲具备的特征）
+
+| 维度 | 权重 |
+|------|------|
+| 艺术家 | 0.50 |
+| 流派 | 0.30 |
+| BPM相似度 | 0.10 |
+| 情绪 | 0.20 |
+| 语言 | 0.25 |
+| 年代 | 0.10 |
+| 能量相似度 | 0.05 |
+
+#### 排斥权重（用户不喜欢的歌曲具备的特征）
+
+| 维度 | 权重 |
+|------|------|
+| 艺术家 | 0.50 |
+| 流派 | 0.30 |
+| 情绪 | 0.20 |
+| 语言 | 0.25 |
+| 年代 | 0.10 |
+
+### 5. 系统架构
 
 ```
 ┌─────────────────────────────────────────────────────┐
@@ -114,7 +172,211 @@ const skipWeight = -1 * (1 - listenRatio);
 └─────────────────────────────────────────────────────┘
 ```
 
-## 🚀 部署智能推荐服务
+---
+
+## 第四部分：编译安装指南
+
+### Windows 用户
+
+#### 方式一：下载安装包（推荐）
+
+1. 访问 [Releases 页面](https://github.com/qier222/YesPlayMusic/releases)
+2. 下载 Windows 版本安装包（.exe 或 .msi）
+3. 双击安装即可
+
+#### 方式二：Scoop 安装
+
+```bash
+scoop install extras/yesplaymusic
+```
+
+#### 方式三：从源码打包
+
+```bash
+# 1. 安装 Node.js 和 Yarn
+# Node.js: https://nodejs.org/zh-cn/
+# Yarn: npm install -g yarn
+
+# 2. 克隆仓库
+git clone --recursive https://github.com/qier222/YesPlayMusic.git
+cd YesPlayMusic
+
+# 3. 安装依赖
+yarn install
+
+# 4. 配置环境变量
+cp .env.example .env
+# 修改 .env 中的 VUE_APP_NETEASE_API_URL
+
+# 5. 打包
+yarn electron:build --windows nsis:ia32    # Windows 32位
+yarn electron:build --windows nsis:arm64    # Windows ARM
+```
+
+#### 方式四：Docker 部署
+
+```bash
+# 构建镜像
+docker build -t yesplaymusic .
+
+# 运行容器
+docker run -d --name YesPlayMusic -p 80:80 yesplaymusic
+```
+
+---
+
+### macOS 用户
+
+#### 方式一：下载安装包（推荐）
+
+1. 访问 [Releases 页面](https://github.com/qier222/YesPlayMusic/releases)
+2. 下载 macOS 版本安装包（.dmg）
+3. 拖动到应用程序文件夹即可
+
+#### 方式二：Homebrew 安装
+
+```bash
+brew install --cask yesplaymusic
+```
+
+#### 方式三：从源码打包
+
+```bash
+# 1. 安装 Node.js 和 Yarn
+# Node.js: https://nodejs.org/zh-cn/
+# Yarn: npm install -g yarn
+
+# 2. 克隆仓库
+git clone --recursive https://github.com/qier222/YesPlayMusic.git
+cd YesPlayMusic
+
+# 3. 安装依赖
+yarn install
+
+# 4. 配置环境变量
+cp .env.example .env
+# 修改 .env 中的 VUE_APP_NETEASE_API_URL
+
+# 5. 打包
+yarn electron:build --macos dir:arm64    # macOS ARM (Apple Silicon)
+yarn electron:build --macos dir:x64      # macOS x64 (Intel)
+```
+
+---
+
+### Linux 用户
+
+#### 方式一：下载安装包（推荐）
+
+1. 访问 [Releases 页面](https://github.com/qier222/YesPlayMusic/releases)
+2. 下载对应架构的安装包（.deb, .AppImage 等）
+3. 使用包管理器安装
+
+#### 方式二：Docker 部署
+
+```bash
+# 构建镜像
+docker build -t yesplaymusic .
+
+# 运行容器
+docker run -d --name YesPlayMusic -p 80:80 yesplaymusic
+```
+
+#### 方式三：从源码打包
+
+```bash
+# 1. 安装 Node.js 和 Yarn
+# Node.js: https://nodejs.org/zh-cn/
+# Yarn: npm install -g yarn
+
+# 2. 克隆仓库
+git clone --recursive https://github.com/qier222/YesPlayMusic.git
+cd YesPlayMusic
+
+# 3. 安装依赖
+yarn install
+
+# 4. 配置环境变量
+cp .env.example .env
+# 修改 .env 中的 VUE_APP_NETEASE_API_URL
+
+# 5. 打包
+yarn electron:build --linux deb:armv7l    # Debian armv7l（树莓派等）
+yarn electron:build --linux AppImage       # 通用 AppImage
+yarn electron:build --linux deb            # Debian/Ubuntu
+yarn electron:build --linux rpm            # Fedora/RHEL
+```
+
+---
+
+### 服务器部署
+
+#### Vercel 部署
+
+1. Fork 本仓库到你的 GitHub
+2. 创建 `vercel.json` 文件：
+```json
+{
+  "rewrites": [
+    {
+      "source": "/api/:match*",
+      "destination": "https://your-netease-api.example.com/:match*"
+    }
+  ]
+}
+```
+3. 在 Vercel 导入仓库，设置环境变量 `VUE_APP_NETEASE_API_URL=/api`
+
+#### 宝塔面板 Docker 部署
+
+1. 安装宝塔面板
+2. 在 Docker 应用商店找到 YesPlayMusic
+3. 点击安装，配置域名和端口即可
+
+#### 手动部署到服务器
+
+```bash
+# 1. 克隆仓库
+git clone --recursive https://github.com/qier222/YesPlayMusic.git
+cd YesPlayMusic
+
+# 2. 安装依赖
+yarn install
+
+# 3. 配置环境变量
+cp .env.example .env
+# 修改 VUE_APP_NETEASE_API_URL
+
+# 4. 编译打包
+yarn run build
+
+# 5. 将 dist 目录部署到 Web 服务器
+```
+
+---
+
+### 开发环境运行
+
+```bash
+# 安装依赖
+yarn install
+
+# 创建环境变量
+cp .env.example .env
+
+# 运行网页端
+yarn serve
+
+# 运行 Electron
+yarn electron:serve
+
+# 运行网易云 API
+yarn netease_api:run
+```
+
+---
+
+## 启动智能推荐服务
 
 ```bash
 # 1. 启动推荐服务
@@ -123,15 +385,6 @@ cd server && npm start
 # 2. 访问智能推荐页面
 # http://localhost:8080/#/smart-recommend
 ```
-
-## 📊 数据追踪
-
-推荐系统自动追踪以下数据：
-
-- **播放完成率** - 实际收听时长 / 歌曲总时长
-- **跳过行为** - 跳过时间点、收听比例
-- **点赞/取消点赞** - 双向追踪
-- **歌曲特征** - 流派、情绪、语言、年代、BPM、能量值
 
 ---
 
@@ -301,7 +554,7 @@ bash <(curl -s -L https://raw.githubusercontent.com/qier222/YesPlayMusic/main/in
 cd /home/runner/${REPL_SLUG}/music && yarn install && yarn run build
 ```
 
-## 👷‍♂️ 打包客户端
+## 👷♂ 打包客户端
 
 如果在 Release 页面没有找到适合你的设备的安装包的话，你可以根据下面的步骤来打包自己的客户端。
 
