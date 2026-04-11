@@ -45,6 +45,9 @@ jobs:
         uses: samuelmeuli/action-snapcraft@v3
         if: startsWith(matrix.os, 'ubuntu')
 
+      - name: Install dependencies
+        run: yarn install
+
       - id: get_unm_version
         name: Get the installed UNM version
         run: |
