@@ -152,10 +152,6 @@ module.exports = {
               target: 'snap',
               arch: ['x64'],
             },
-            {
-              target: 'pacman',
-              arch: ['x64'],
-            },
           ],
           category: 'Music',
           icon: './build/icon.icns',
