@@ -28,7 +28,7 @@ jobs:
           cache: 'yarn'
 
       - name: Install dependencies
-        run: yarn install --ignore-optional
+        run: yarn install
 
       - name: Build Electron app
         run: npx vue-cli-service electron:build
