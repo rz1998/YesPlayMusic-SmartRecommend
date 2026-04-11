@@ -45,11 +45,8 @@ jobs:
         uses: samuelmeuli/action-snapcraft@v3
         if: startsWith(matrix.os, 'ubuntu')
 
-      - name: Install dependencies
-        run: yarn install
-
-      - id: get_unm_version
-        name: Get the installed UNM version
+      - name: Install dependencies and get UNM version
+        id: get_unm_version
         run: |
           yarn --ignore-optional
           unm_version=$(node -e "console.log(require('./node_modules/@unblockneteasemusic/rust-napi/package.json').version)")
