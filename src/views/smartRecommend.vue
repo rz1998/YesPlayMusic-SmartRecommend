@@ -5,7 +5,7 @@
       <div class="subtitle">根据你的喜好定制 · 越用越懂你</div>
     </div>
 
-    <div class="stats" v-if="profile">
+    <div v-if="profile" class="stats">
       <div class="stat-item">
         <span class="stat-value">{{ profile.statistics.totalPlays }}</span>
         <span class="stat-label">播放</span>
@@ -97,7 +97,7 @@ export default {
     initializeRecommendations() {
       // 获取用户喜欢的歌曲作为初始数据
       const likedSongs = this.liked?.songs || [];
-      
+
       if (likedSongs.length === 0) {
         // 尝试从API获取喜欢的歌曲
         this.fetchLikedSongsFromAPI();
@@ -147,7 +147,7 @@ export default {
       // 统计歌手偏好
       const artistCounts = {};
       const artistLiked = {};
-      
+
       songs.forEach(song => {
         if (song.ar) {
           song.ar.forEach(artist => {
@@ -164,7 +164,7 @@ export default {
         version: 1,
         initialized: true,
         initTime: Date.now(),
-        songs: songs.map(s => s.id),  // 喜欢的歌曲ID列表
+        songs: songs.map(s => s.id), // 喜欢的歌曲ID列表
         artists: artistCounts,
         artistLiked: artistLiked,
         plays: {},
@@ -176,7 +176,7 @@ export default {
       // 获取所有可用歌曲
       const allSongs = this.getAllAvailableSongs();
       const localData = this.getLocalData();
-      
+
       if (!localData) {
         this.initialized = false;
         this.show = true;
@@ -188,11 +188,11 @@ export default {
       // 过滤并评分
       const likedSongIds = new Set(localData.songs || []);
       const scoredSongs = allSongs
-        .filter(song => !likedSongIds.has(song.id))  // 排除已喜欢的
-        .filter(song => !localData.skips?.has(song.id))  // 排除跳过的
+        .filter(song => !likedSongIds.has(song.id)) // 排除已喜欢的
+        .filter(song => !localData.skips?.has(song.id)) // 排除跳过的
         .map(song => {
           let score = 0;
-          
+
           // 歌手匹配
           if (song.ar) {
             song.ar.forEach(artist => {
@@ -204,12 +204,12 @@ export default {
               }
             });
           }
-          
+
           // 播放过的降低权重
           if (localData.plays?.[song.id]) {
             score -= localData.plays[song.id] * 3;
           }
-          
+
           return { song, score };
         })
         .filter(item => item.score > 0)
@@ -225,7 +225,7 @@ export default {
     },
     getAllAvailableSongs() {
       const songs = new Map();
-      
+
       // 添加喜欢的歌曲
       const likedSongs = this.liked?.songs || [];
       likedSongs.forEach(song => {
@@ -233,7 +233,7 @@ export default {
           songs.set(song.id, song);
         }
       });
-      
+
       return Array.from(songs.values());
     },
     getLocalData() {
@@ -272,37 +272,43 @@ export default {
       if (!data) {
         return { statistics: { totalPlays: 0, totalLikes: 0, skipRate: '0%' } };
       }
-      
-      const totalPlays = Object.values(data.plays || {}).reduce((sum, p) => sum + (p.count || 0), 0);
-      const totalLikes = data.likes?.size || (data.songs?.length || 0);
+
+      const totalPlays = Object.values(data.plays || {}).reduce(
+        (sum, p) => sum + (p.count || 0),
+        0
+      );
+      const totalLikes = data.likes?.size || data.songs?.length || 0;
       const totalSkips = data.skips?.size || 0;
-      const skipRate = totalPlays > 0 ? Math.round((totalSkips / totalPlays) * 100) + '%' : '0%';
-      
+      const skipRate =
+        totalPlays > 0
+          ? Math.round((totalSkips / totalPlays) * 100) + '%'
+          : '0%';
+
       return {
-        statistics: { totalPlays, totalLikes, skipRate }
+        statistics: { totalPlays, totalLikes, skipRate },
       };
     },
     recordPlay(song) {
       const data = this.getLocalData();
       if (!data) return;
-      
+
       if (!data.plays) data.plays = {};
       if (!data.plays[song.id]) {
         data.plays[song.id] = { count: 0, lastPlay: 0 };
       }
       data.plays[song.id].count++;
       data.plays[song.id].lastPlay = Date.now();
-      
+
       this.saveLocalData(data);
       this.profile = this.getProfile(data);
     },
     recordLike(songId) {
       const data = this.getLocalData();
       if (!data) return;
-      
+
       if (!data.likes) data.likes = new Set();
       data.likes.add(songId);
-      
+
       // 更新歌手喜欢状态
       // ... 可以扩展
       this.saveLocalData(data);
@@ -311,7 +317,7 @@ export default {
     recordSkip(songId) {
       const data = this.getLocalData();
       if (!data) return;
-      
+
       if (!data.skips) data.skips = new Set();
       data.skips.add(songId);
       this.saveLocalData(data);
