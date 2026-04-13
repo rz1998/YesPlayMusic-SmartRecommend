@@ -31,13 +31,17 @@ jobs:
         env:
           NODE_OPTIONS: --openssl-legacy-provider
 
-      - name: Create installer
+      - name: Package artifact
         shell: bash
         run: |
           cd dist_electron
-          # Build installer using electron-builder
-          npx electron-builder --win --config electron-builder.yml
-          ls -lh *.exe *.zip 2>/dev/null || ls -lh
+          # Find built artifacts
+          ls -lh
+          # Create portable zip if not already created by electron-builder
+          if [ ! -f "YesPlayMusic-${{ github.ref_name }}-win-portable.zip" ]; then
+            powershell -Command "Compress-Archive -Path 'win-unpacked\*' -DestinationPath 'YesPlayMusic-${{ github.ref_name }}-win-portable.zip' -Force"
+          fi
+          ls -lh *.zip *.exe 2>/dev/null || true
 
       - name: Upload to Release
         shell: bash
@@ -47,7 +51,7 @@ jobs:
           # Try to find existing release, if not create one
           gh release view ${{ github.ref_name }} --repo ${{ github.repository }} || \
             gh release create ${{ github.ref_name }} --title "${{ github.ref_name }}" --generate-notes
-          # Upload all artifacts (both installer and portable)
+          # Upload all artifacts
           cd dist_electron
           for f in *.exe *.zip; do
             if [ -f "$f" ]; then

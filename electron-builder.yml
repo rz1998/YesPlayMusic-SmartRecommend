@@ -16,9 +16,6 @@ win:
         - x64
   icon: build/icons/icon.ico
 nsis:
-  oneClick: false
-  perMachine: false
-  allowToChangeInstallationDirectory: true
   deleteAppDataOnUninstall: false
   artifactName: YesPlayMusic-${version}-win-setup.exe
 portable:
