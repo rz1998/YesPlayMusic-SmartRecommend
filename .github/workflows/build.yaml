@@ -70,6 +70,16 @@ jobs:
         with:
           path: artifacts
 
+      - name: Delete old assets
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # 删除该release的所有旧资产
+          for asset in $(gh api repos/${{ github.repository }}/releases/tags/${{ github.ref_name }}/assets --jq '.[].id' 2>/dev/null); do
+            echo "Deleting asset $asset"
+            gh api -X DELETE repos/${{ github.repository }}/releases/assets/$asset 2>/dev/null || true
+          done
+
       - name: Upload to Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
