@@ -70,22 +70,20 @@ jobs:
         with:
           path: artifacts
 
-      - name: Delete existing release
-        run: |
-          gh release delete ${{ github.ref_name }} --repo ${{ github.repository }} --yes || true
-
-      - name: Create Release
+      - name: Upload to Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           cd artifacts
-          # 先创建release
-          gh release create ${{ github.ref_name }} \
-            --title 'YesPlayMusic ${{ github.ref_name }}' \
-            --notes 'Automatic release from GitHub Actions' \
-            --repo ${{ github.repository }}
+          # 确保release存在
+          gh release view ${{ github.ref_name }} --repo ${{ github.repository }} || \
+            gh release create ${{ github.ref_name }} \
+              --title 'YesPlayMusic ${{ github.ref_name }}' \
+              --notes 'Automatic release from GitHub Actions' \
+              --repo ${{ github.repository }}
           # 上传所有安装包文件
           find . -type f \( -name '*.exe' -o -name '*.dmg' -o -name '*.AppImage' \) 2>/dev/null | \
           while IFS= read -r file; do
+            echo "Uploading $file..."
             gh release upload ${{ github.ref_name }} "$file" --repo ${{ github.repository }} || true
           done
