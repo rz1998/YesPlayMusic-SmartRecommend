@@ -173,7 +173,7 @@ export default {
       display: inline-block;
       width: 48px;
       height: 48px;
-      border: 3px solid rgba(var(--color-primary-rgb), 0.3);
+      border: 3px solid var(--color-primary-bg);
       border-radius: 50%;
       border-top-color: var(--color-primary);
       animation: spin 1s ease-in-out infinite;
@@ -193,13 +193,12 @@ export default {
     p {
       font-size: 18px;
       color: var(--color-text);
-      opacity: 0.67;
       margin-bottom: 8px;
     }
 
     .hint {
       font-size: 14px;
-      opacity: 0.5;
+      opacity: 0.6;
     }
 
     &.initializing {
