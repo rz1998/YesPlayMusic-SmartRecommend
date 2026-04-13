@@ -70,17 +70,7 @@ jobs:
         with:
           path: artifacts
 
-      - name: Delete old assets
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          # 删除该release的所有旧资产
-          for asset in $(gh api repos/${{ github.repository }}/releases/tags/${{ github.ref_name }}/assets --jq '.[].id' 2>/dev/null); do
-            echo "Deleting asset $asset"
-            gh api -X DELETE repos/${{ github.repository }}/releases/assets/$asset 2>/dev/null || true
-          done
-
-      - name: Upload to Release
+      - name: Delete old assets and upload
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -91,9 +81,17 @@ jobs:
               --title 'YesPlayMusic ${{ github.ref_name }}' \
               --notes 'Automatic release from GitHub Actions' \
               --repo ${{ github.repository }}
+          
+          # 删除该release的所有旧资产（包括.githubworkflows生成的）
+          for asset_id in $(gh api repos/${{ github.repository }}/releases/tags/${{ github.ref_name }}/assets --jq '.[].id'); do
+            echo "Deleting asset ID: $asset_id"
+            gh api -X DELETE repos/${{ github.repository }}/releases/assets/$asset_id
+          done
+          
           # 上传所有安装包文件
-          find . -type f \( -name '*.exe' -o -name '*.dmg' -o -name '*.AppImage' \) 2>/dev/null | \
-          while IFS= read -r file; do
-            echo "Uploading $file..."
-            gh release upload ${{ github.ref_name }} "$file" --repo ${{ github.repository }} || true
+          for f in YesPlayMusic-win/*.exe YesPlayMusic-mac/*.dmg YesPlayMusic-linux/*.AppImage; do
+            if [ -f "$f" ]; then
+              echo "Uploading $f..."
+              gh release upload ${{ github.ref_name }} "$f" --repo ${{ github.repository }}
+            fi
           done
