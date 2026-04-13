@@ -75,6 +75,19 @@ export function getUserProfile(userId) {
 }
 
 /**
+ * Record an unlike event
+ * @param {string} userId - User ID
+ * @param {number} songId - Song ID
+ */
+export function recordUnlike(userId, songId) {
+  return fetch(`${RECOMMENDER_HOST}/api/event/unlike`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ userId, songId }),
+  }).then(r => r.json());
+}
+
+/**
  * Get similar songs
  * @param {number} songId - Song ID
  * @param {number} limit - Number of similar songs

@@ -47,6 +47,18 @@ router.post('/like', (req, res) => {
   res.json({ success: true, action: 'liked', id: result.id });
 });
 
+// Record unlike event
+router.post('/unlike', (req, res) => {
+  const { userId, songId } = req.body;
+
+  if (!userId || !songId) {
+    return res.status(400).json({ error: 'userId and songId are required' });
+  }
+
+  const result = db.addEvent(userId, songId, 'unlike', 0, false);
+  res.json({ success: true, action: 'unliked', id: result.id });
+});
+
 // Get user event history
 router.get('/history/:userId', (req, res) => {
   const { userId } = req.params;

@@ -32,7 +32,7 @@
       <p>正在分析你的喜好...</p>
     </div>
 
-    <div v-else-if="!initialized" class="empty initializing">
+    <div v-else-if="!hasEnoughData" class="empty initializing">
       <div class="init-icon">🎵</div>
       <p>正在从你喜欢的歌曲中学习...</p>
       <p class="hint">这将帮助我了解你的音乐偏好</p>
@@ -49,9 +49,7 @@
 import { mapState } from 'vuex';
 import NProgress from 'nprogress';
 import TrackList from '@/components/TrackList.vue';
-import { getPlaylistDetail } from '@/api/playlist';
-
-const STORAGE_KEY = 'smartRecommendData';
+import { getRecommendations } from '@/api/recommend';
 
 export default {
   name: 'SmartRecommend',
@@ -62,13 +60,16 @@ export default {
       loading: true,
       recommendations: [],
       profile: null,
-      initialized: false,
+      hasEnoughData: false,
     };
   },
   computed: {
     ...mapState(['user', 'player', 'liked']),
     userId() {
       return this.user?.userId || 'anonymous';
+    },
+    likedSongsCount() {
+      return this.liked?.songs?.length || 0;
     },
   },
   created() {
@@ -83,245 +84,33 @@ export default {
       this.loading = true;
       NProgress.start();
 
-      // 检查本地存储的推荐数据
-      const localData = this.getLocalData();
+      // 获取用户喜欢的歌曲数量（用于判断是否需要初始化）
+      const likedCount = this.likedSongsCount;
 
-      if (!localData || !localData.initialized) {
-        // 初始化推荐数据
-        this.initializeRecommendations();
-      } else {
-        // 生成推荐
-        this.generateRecommendations();
-      }
-    },
-    initializeRecommendations() {
-      // 获取用户喜欢的歌曲作为初始数据
-      const likedSongs = this.liked?.songs || [];
-
-      if (likedSongs.length === 0) {
-        // 尝试从API获取喜欢的歌曲
-        this.fetchLikedSongsFromAPI();
-        return;
-      }
-
-      // 使用喜欢的歌曲初始化推荐数据
-      const data = this.buildInitialData(likedSongs);
-      this.saveLocalData(data);
-      this.initialized = true;
-      this.generateRecommendations();
-    },
-    fetchLikedSongsFromAPI() {
-      const likedPlaylistId = this.$store.state.data?.likedSongPlaylistID;
-      if (!likedPlaylistId) {
-        this.initialized = false;
-        this.show = true;
-        this.loading = false;
-        NProgress.done();
-        return;
-      }
-
-      getPlaylistDetail(likedPlaylistId, true)
+      getRecommendations(this.userId, 30)
         .then(result => {
-          if (result.playlist && result.playlist.tracks) {
-            const songs = result.playlist.tracks;
-            const data = this.buildInitialData(songs);
-            this.saveLocalData(data);
-            this.initialized = true;
-            this.generateRecommendations();
+          if (result.code === 200 || result.code === 0) {
+            // 解析推荐结果
+            this.recommendations = result.recommendations || [];
+            this.profile = result.profile || null;
+            // 有推荐数据或已有播放记录即为有足够数据
+            this.hasEnoughData =
+              this.recommendations.length > 0 ||
+              (this.profile?.statistics?.totalPlays > 0);
           } else {
-            this.initialized = false;
-            this.show = true;
+            // API 返回错误，尝试显示已有喜欢歌曲数
+            this.hasEnoughData = likedCount > 0;
           }
         })
         .catch(err => {
-          console.error('Failed to fetch liked songs:', err);
-          this.initialized = false;
-          this.show = true;
+          console.error('Failed to load recommendations:', err);
+          this.hasEnoughData = likedCount > 0;
         })
         .finally(() => {
+          this.show = true;
           this.loading = false;
           NProgress.done();
         });
-    },
-    buildInitialData(songs) {
-      // 统计歌手偏好
-      const artistCounts = {};
-      const artistLiked = {};
-
-      songs.forEach(song => {
-        if (song.ar) {
-          song.ar.forEach(artist => {
-            if (!artistCounts[artist.id]) {
-              artistCounts[artist.id] = { name: artist.name, count: 0 };
-              artistLiked[artist.id] = true;
-            }
-            artistCounts[artist.id].count++;
-          });
-        }
-      });
-
-      return {
-        version: 1,
-        initialized: true,
-        initTime: Date.now(),
-        songs: songs.map(s => s.id), // 喜欢的歌曲ID列表
-        artists: artistCounts,
-        artistLiked: artistLiked,
-        plays: {},
-        likes: new Set(songs.map(s => s.id)),
-        skips: new Set(),
-      };
-    },
-    generateRecommendations() {
-      // 获取所有可用歌曲
-      const allSongs = this.getAllAvailableSongs();
-      const localData = this.getLocalData();
-
-      if (!localData) {
-        this.initialized = false;
-        this.show = true;
-        this.loading = false;
-        NProgress.done();
-        return;
-      }
-
-      // 过滤并评分
-      const likedSongIds = new Set(localData.songs || []);
-      const scoredSongs = allSongs
-        .filter(song => !likedSongIds.has(song.id)) // 排除已喜欢的
-        .filter(song => !localData.skips?.has(song.id)) // 排除跳过的
-        .map(song => {
-          let score = 0;
-
-          // 歌手匹配
-          if (song.ar) {
-            song.ar.forEach(artist => {
-              if (localData.artists?.[artist.id]) {
-                score += localData.artists[artist.id].count * 2;
-                if (localData.artistLiked?.[artist.id]) {
-                  score += 30;
-                }
-              }
-            });
-          }
-
-          // 播放过的降低权重
-          if (localData.plays?.[song.id]) {
-            score -= localData.plays[song.id] * 3;
-          }
-
-          return { song, score };
-        })
-        .filter(item => item.score > 0)
-        .sort((a, b) => b.score - a.score)
-        .slice(0, 30)
-        .map(item => item.song);
-
-      this.recommendations = scoredSongs;
-      this.profile = this.getProfile(localData);
-      this.show = true;
-      this.loading = false;
-      NProgress.done();
-    },
-    getAllAvailableSongs() {
-      const songs = new Map();
-
-      // 添加喜欢的歌曲
-      const likedSongs = this.liked?.songs || [];
-      likedSongs.forEach(song => {
-        if (!songs.has(song.id)) {
-          songs.set(song.id, song);
-        }
-      });
-
-      return Array.from(songs.values());
-    },
-    getLocalData() {
-      try {
-        const data = localStorage.getItem(STORAGE_KEY);
-        if (data) {
-          const parsed = JSON.parse(data);
-          // 恢复 Set
-          if (parsed.likes && Array.isArray(parsed.likes)) {
-            parsed.likes = new Set(parsed.likes);
-          }
-          if (parsed.skips && Array.isArray(parsed.skips)) {
-            parsed.skips = new Set(parsed.skips);
-          }
-          return parsed;
-        }
-      } catch (e) {
-        console.error('Failed to load local data:', e);
-      }
-      return null;
-    },
-    saveLocalData(data) {
-      try {
-        // 转换 Set 为 Array
-        const toSave = {
-          ...data,
-          likes: data.likes ? Array.from(data.likes) : [],
-          skips: data.skips ? Array.from(data.skips) : [],
-        };
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
-      } catch (e) {
-        console.error('Failed to save local data:', e);
-      }
-    },
-    getProfile(data) {
-      if (!data) {
-        return { statistics: { totalPlays: 0, totalLikes: 0, skipRate: '0%' } };
-      }
-
-      const totalPlays = Object.values(data.plays || {}).reduce(
-        (sum, p) => sum + (p.count || 0),
-        0
-      );
-      const totalLikes = data.likes?.size || data.songs?.length || 0;
-      const totalSkips = data.skips?.size || 0;
-      const skipRate =
-        totalPlays > 0
-          ? Math.round((totalSkips / totalPlays) * 100) + '%'
-          : '0%';
-
-      return {
-        statistics: { totalPlays, totalLikes, skipRate },
-      };
-    },
-    recordPlay(song) {
-      const data = this.getLocalData();
-      if (!data) return;
-
-      if (!data.plays) data.plays = {};
-      if (!data.plays[song.id]) {
-        data.plays[song.id] = { count: 0, lastPlay: 0 };
-      }
-      data.plays[song.id].count++;
-      data.plays[song.id].lastPlay = Date.now();
-
-      this.saveLocalData(data);
-      this.profile = this.getProfile(data);
-    },
-    recordLike(songId) {
-      const data = this.getLocalData();
-      if (!data) return;
-
-      if (!data.likes) data.likes = new Set();
-      data.likes.add(songId);
-
-      // 更新歌手喜欢状态
-      // ... 可以扩展
-      this.saveLocalData(data);
-      this.profile = this.getProfile(data);
-    },
-    recordSkip(songId) {
-      const data = this.getLocalData();
-      if (!data) return;
-
-      if (!data.skips) data.skips = new Set();
-      data.skips.add(songId);
-      this.saveLocalData(data);
-      this.profile = this.getProfile(data);
     },
   },
 };
