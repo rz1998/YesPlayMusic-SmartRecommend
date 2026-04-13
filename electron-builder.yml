@@ -6,6 +6,12 @@ directories:
 files:
   - dist_electron/bundled/**/*
   - dist_electron/win-unpacked/**/*
+  - server/**/*
+  - '!node_modules/**/*'
+  - server/node_modules/**/*
+asar: true
+asarUnpack:
+  - server/**/*
 win:
   target:
     - target: nsis
