@@ -93,13 +93,13 @@ export default {
         try {
           // 获取喜欢的歌曲ID列表（最多500首）
           const likedSongIds = this.liked.songs.slice(0, 500);
-          
+
           // 分批获取歌曲详情（每批100首）
           const batchSize = 100;
           for (let i = 0; i < likedSongIds.length; i += batchSize) {
             const batchIds = likedSongIds.slice(i, i + batchSize);
             const idsStr = batchIds.join(',');
-            
+
             try {
               const detail = await getTrackDetail(idsStr);
               if (detail.songs && detail.songs.length > 0) {
