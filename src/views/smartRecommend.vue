@@ -49,7 +49,8 @@
 import { mapState } from 'vuex';
 import NProgress from 'nprogress';
 import TrackList from '@/components/TrackList.vue';
-import { getRecommendations } from '@/api/recommend';
+import { getRecommendations, syncSongs } from '@/api/recommend';
+import { getTrackDetail } from '@/api/playlist';
 
 export default {
   name: 'SmartRecommend',
@@ -80,12 +81,49 @@ export default {
     this.$parent.$refs.main.scrollTo(0, 0);
   },
   methods: {
-    loadRecommendations() {
+    async loadRecommendations() {
       this.loading = true;
       NProgress.start();
 
       // 获取用户喜欢的歌曲数量（用于判断是否需要初始化）
       const likedCount = this.likedSongsCount;
+
+      // 如果有喜欢的歌曲，先同步到后端
+      if (likedCount > 0) {
+        try {
+          // 获取喜欢的歌曲ID列表（最多500首）
+          const likedSongIds = this.liked.songs.slice(0, 500);
+          
+          // 分批获取歌曲详情（每批100首）
+          const batchSize = 100;
+          for (let i = 0; i < likedSongIds.length; i += batchSize) {
+            const batchIds = likedSongIds.slice(i, i + batchSize);
+            const idsStr = batchIds.join(',');
+            
+            try {
+              const detail = await getTrackDetail(idsStr);
+              if (detail.songs && detail.songs.length > 0) {
+                // 转换为后端格式并同步
+                const songsToSync = detail.songs.map(s => ({
+                  id: s.id,
+                  name: s.name,
+                  artistId: s.ar?.[0]?.id,
+                  artistName: s.ar?.map(a => a.name).join(','),
+                  albumId: s.al?.id,
+                  albumName: s.al?.name,
+                  duration: s.dt,
+                }));
+                await syncSongs(songsToSync);
+              }
+            } catch (e) {
+              console.warn('Failed to sync batch:', i, e);
+            }
+          }
+          console.log('✅ Liked songs synced to backend');
+        } catch (e) {
+          console.warn('Failed to sync liked songs:', e);
+        }
+      }
 
       getRecommendations(this.userId, 30)
         .then(result => {
