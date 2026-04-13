@@ -1,0 +1,44 @@
+name: Build Windows Installer
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Electron (Windows)
+        run: npm run electron:build-win
+        env:
+          NODE_OPTIONS: --openssl-legacy-provider
+
+      - name: Package artifact
+        shell: bash
+        run: |
+          cd dist_electron
+          # Create portable zip
+          powershell -Command "Compress-Archive -Path 'win-unpacked\*' -DestinationPath 'YesPlayMusic-${{ github.ref_name }}-win-portable.zip' -Force"
+          ls -lh *.zip
+
+      - name: Upload Release Asset
+        uses: softprops/action-gh-release@v1
+        with:
+          files: dist_electron/*.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
