@@ -36,9 +36,13 @@ jobs:
           powershell -Command "Compress-Archive -Path 'win-unpacked\*' -DestinationPath 'YesPlayMusic-${{ github.ref_name }}-win-portable.zip' -Force"
           ls -lh *.zip
 
-      - name: Upload Release Asset
-        uses: softprops/action-gh-release@v1
-        with:
-          files: dist_electron/*.zip
+      - name: Upload to Release
+        shell: bash
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Try to find existing release, if not create one
+          gh release view ${{ github.ref_name }} --repo ${{ github.repository }} || \
+            gh release create ${{ github.ref_name }} --title "${{ github.ref_name }}" --generate-notes
+          # Upload asset
+          gh release upload ${{ github.ref_name }} dist_electron/*.zip --repo ${{ github.repository }}
