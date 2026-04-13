@@ -75,29 +75,31 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           cd artifacts
-          # 确保release存在（如果已存在则跳过创建）
-          if gh release view ${{ github.ref_name }} --repo ${{ github.repository }} 2>/dev/null; then
-            echo "Release ${{ github.ref_name }} already exists"
-          else
+          
+          # 获取release ID（如果不存在则创建）
+          release_id=$(gh api repos/${{ github.repository }}/releases/tags/${{ github.ref_name }} --jq '.id' 2>/dev/null) || true
+          if [ -z "$release_id" ]; then
+            echo "Creating release ${{ github.ref_name }}..."
             gh release create ${{ github.ref_name }} \
               --title 'YesPlayMusic ${{ github.ref_name }}' \
               --notes 'Automatic release from GitHub Actions' \
               --repo ${{ github.repository }}
+            release_id=$(gh api repos/${{ github.repository }}/releases/tags/${{ github.ref_name }} --jq '.id')
           fi
           
-          # 删除该release的所有旧资产（包括.githubworkflows生成的）
-          asset_ids=$(gh api repos/${{ github.repository }}/releases/tags/${{ github.ref_name }}/assets --jq '.[].id' 2>/dev/null)
-          if [ -n "$asset_ids" ]; then
-            for asset_id in $asset_ids; do
-              echo "Deleting asset ID: $asset_id"
-              gh api -X DELETE repos/${{ github.repository }}/releases/assets/$asset_id 2>/dev/null || true
-            done
-          fi
+          # 删除该release的所有旧资产
+          echo "Deleting old assets..."
+          for asset_id in $(gh api repos/${{ github.repository }}/releases/$release_id/assets --jq '.[].id' 2>/dev/null); do
+            echo "  Deleting asset ID: $asset_id"
+            gh api -X DELETE repos/${{ github.repository }}/releases/assets/$asset_id 2>/dev/null || true
+          done
           
           # 上传所有安装包文件
+          echo "Uploading artifacts..."
           for f in YesPlayMusic-win/*.exe YesPlayMusic-mac/*.dmg YesPlayMusic-linux/*.AppImage; do
             if [ -f "$f" ]; then
-              echo "Uploading $f..."
-              gh release upload ${{ github.ref_name }} "$f" --repo ${{ github.repository }}
+              echo "  Uploading $f..."
+              gh release upload ${{ github.ref_name }} "$f" --repo ${{ github.repository }} || true
             fi
           done
+          echo "Done!"
