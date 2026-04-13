@@ -133,7 +133,6 @@ export default {
     .subtitle {
       font-size: 16px;
       color: var(--color-text);
-      opacity: 0.7;
     }
   }
 
@@ -156,7 +155,6 @@ export default {
       .stat-label {
         font-size: 14px;
         color: var(--color-text);
-        opacity: 0.67;
       }
 
       &.warning .stat-value {
@@ -182,7 +180,6 @@ export default {
     p {
       margin-top: 16px;
       color: var(--color-text);
-      opacity: 0.67;
     }
   }
 
@@ -198,7 +195,7 @@ export default {
 
     .hint {
       font-size: 14px;
-      opacity: 0.6;
+      color: var(--color-text);
     }
 
     &.initializing {
