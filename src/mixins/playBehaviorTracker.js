@@ -17,7 +17,12 @@
  */
 
 import { mapState } from 'vuex';
-import { recordPlay, recordSkip, recordLike, recordUnlike } from '@/api/recommend';
+import {
+  recordPlay,
+  recordSkip,
+  recordLike,
+  recordUnlike,
+} from '@/api/recommend';
 
 export default {
   data() {
@@ -79,8 +84,7 @@ export default {
 
       // Detect if it was a skip (didn't finish and didn't like)
       const isSkip =
-        playedDuration < this.skipThreshold &&
-        !this.isLikedTrack(oldTrack.id);
+        playedDuration < this.skipThreshold && !this.isLikedTrack(oldTrack.id);
 
       if (isSkip) {
         this.onSkip(oldTrack);

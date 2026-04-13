@@ -96,7 +96,7 @@ export default {
             // 有推荐数据或已有播放记录即为有足够数据
             this.hasEnoughData =
               this.recommendations.length > 0 ||
-              (this.profile?.statistics?.totalPlays > 0);
+              this.profile?.statistics?.totalPlays > 0;
           } else {
             // API 返回错误，尝试显示已有喜欢歌曲数
             this.hasEnoughData = likedCount > 0;
