@@ -31,13 +31,13 @@ jobs:
         env:
           NODE_OPTIONS: --openssl-legacy-provider
 
-      - name: Package artifact
+      - name: Create installer
         shell: bash
         run: |
           cd dist_electron
-          # Create portable zip
-          powershell -Command "Compress-Archive -Path 'win-unpacked\*' -DestinationPath 'YesPlayMusic-${{ github.ref_name }}-win-portable.zip' -Force"
-          ls -lh *.zip
+          # Build installer using electron-builder
+          npx electron-builder --win --config electron-builder.yml
+          ls -lh *.exe *.zip 2>/dev/null || ls -lh
 
       - name: Upload to Release
         shell: bash
@@ -47,5 +47,11 @@ jobs:
           # Try to find existing release, if not create one
           gh release view ${{ github.ref_name }} --repo ${{ github.repository }} || \
             gh release create ${{ github.ref_name }} --title "${{ github.ref_name }}" --generate-notes
-          # Upload asset
-          gh release upload ${{ github.ref_name }} dist_electron/*.zip --repo ${{ github.repository }}
+          # Upload all artifacts (both installer and portable)
+          cd dist_electron
+          for f in *.exe *.zip; do
+            if [ -f "$f" ]; then
+              echo "Uploading $f..."
+              gh release upload ${{ github.ref_name }} "$f" --repo ${{ github.repository }}
+            fi
+          done

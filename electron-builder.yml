@@ -1,0 +1,27 @@
+appId: com.yesplaymusic.app
+productName: YesPlayMusic
+directories:
+  buildResources: build
+  output: dist_electron
+files:
+  - dist_electron/bundled/**/*
+  - dist_electron/win-unpacked/**/*
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+    - target: portable
+      arch:
+        - x64
+  icon: build/icons/icon.ico
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  deleteAppDataOnUninstall: false
+  artifactName: YesPlayMusic-${version}-win-setup.exe
+portable:
+  artifactName: YesPlayMusic-${version}-win-portable.zip
+electronDownload:
+  mirror: https://npmmirror.com/mirrors/electron/
