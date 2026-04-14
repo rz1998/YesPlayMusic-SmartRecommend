@@ -1,0 +1,105 @@
+name: Release
+
+permissions:
+  contents: write
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  release:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [macos-latest, windows-latest, ubuntu-22.04]
+
+    steps:
+      - name: Check out Git repository
+        uses: actions/checkout@v3
+        with:
+          submodules: 'recursive'
+
+      - name: Install Node.js, NPM and Yarn
+        uses: actions/setup-node@v3
+        with:
+          node-version: '16'
+          cache: 'yarn'
+
+      - name: Install dependencies
+        run: yarn install --ignore-engines
+
+      - name: Build Electron app
+        run: npx vue-cli-service electron:build
+        env:
+          VUE_APP_NETEASE_API_URL: /api
+          VUE_APP_ELECTRON_API_URL: /api
+          VUE_APP_ELECTRON_API_URL_DEV: http://127.0.0.1:10754
+          VUE_APP_LASTFM_API_KEY: 09c55292403d961aa517ff7f5e8a3d9c
+          VUE_APP_LASTFM_API_SHARED_SECRET: 307c9fda32b3904e53654baff215cb67
+          GH_TOKEN: ${{ secrets.github_token }}
+          ARTIFACT_VERSION: ${{ github.ref_name }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: YesPlayMusic-mac
+          path: dist_electron/*-universal.dmg
+          if-no-files-found: ignore
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: YesPlayMusic-win
+          path: dist_electron/*Setup*.exe
+          if-no-files-found: ignore
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: YesPlayMusic-linux
+          path: dist_electron/*.AppImage
+          if-no-files-found: ignore
+
+  create-release:
+    needs: release
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Delete old assets and upload
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd artifacts
+          
+          # 获取release ID（如果不存在则创建）
+          release_id=$(gh api repos/${{ github.repository }}/releases/tags/${{ github.ref_name }} --jq '.id' 2>/dev/null) || true
+          if [ -z "$release_id" ]; then
+            echo "Creating release ${{ github.ref_name }}..."
+            gh release create ${{ github.ref_name }} \
+              --title 'YesPlayMusic ${{ github.ref_name }}' \
+              --notes 'Automatic release from GitHub Actions' \
+              --repo ${{ github.repository }}
+            release_id=$(gh api repos/${{ github.repository }}/releases/tags/${{ github.ref_name }} --jq '.id')
+          fi
+          
+          # 删除该release的所有旧资产
+          echo "Deleting old assets..."
+          for asset_id in $(gh api repos/${{ github.repository }}/releases/$release_id/assets --jq '.[].id' 2>/dev/null); do
+            echo "  Deleting asset ID: $asset_id"
+            gh api -X DELETE repos/${{ github.repository }}/releases/assets/$asset_id 2>/dev/null || true
+          done
+          
+          # 上传所有安装包文件
+          echo "Uploading artifacts..."
+          for f in YesPlayMusic-win/*.exe YesPlayMusic-mac/*.dmg YesPlayMusic-linux/*.AppImage; do
+            if [ -f "$f" ]; then
+              echo "  Uploading $f..."
+              gh release upload ${{ github.ref_name }} "$f" --repo ${{ github.repository }} || true
+            fi
+          done
+          echo "Done!"

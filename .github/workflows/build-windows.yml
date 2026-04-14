@@ -1,0 +1,83 @@
+name: Build Windows
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag (e.g., v0.4.11)'
+        required: false
+        type: string
+
+jobs:
+  build:
+    runs-on: windows-latest
+    
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          submodules: 'recursive'
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '16'
+          cache: 'yarn'
+
+      - name: Get UNM version
+        id: unm_version
+        run: |
+          yarn --ignore-optional
+          $version = node -p "require('./node_modules/@unblockneteasemusic/rust-napi/package.json').version"
+          echo "unm_version=$version" >> $env:GITHUB_OUTPUT
+        shell: bash
+
+      - name: Install UNM dependencies
+        run: |
+          yarn add --ignore-platform --ignore-optional @unblockneteasemusic/rust-napi-win32-x64-msvc@${{ steps.unm_version.outputs.unm_version }}
+
+      - name: Build Electron app
+        run: |
+          yarn run electron:build-win
+        env:
+          NODE_OPTIONS: --openssl-legacy-provider
+
+      - name: Upload Windows exe
+        uses: actions/upload-artifact@v4
+        with:
+          name: YesPlayMusic-win-${{ github.run_number }}
+          path: |
+            dist_electron/win-unpacked/*.exe
+            dist_electron/win-unpacked/*.dll
+            dist_electron/win-unpacked/*.pak
+            dist_electron/win-unpacked/*.json
+            dist_electron/win-unpacked/locales/
+            dist_electron/win-unpacked/resources/
+          if-no-files-found: error
+
+      - name: Upload bundled app
+        uses: actions/upload-artifact@v4
+        with:
+          name: YesPlayMusic-win-bundled-${{ github.run_number }}
+          path: dist_electron/bundled/
+          if-no-files-found: error
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.event.inputs.version != ''
+    
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ github.event.inputs.version }}
+          name: YesPlayMusic ${{ github.event.inputs.version }}
+          files: artifacts/**/*.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
