@@ -58,9 +58,10 @@ export function recordLike(userId, songId) {
  * @param {number} limit - Number of recommendations
  * @param {boolean} excludePlayed - Exclude already played songs
  */
-export function getRecommendations(userId, limit = 20, excludePlayed = true) {
+export function getRecommendations(userId, limit = 20, excludePlayed = true, refresh = false) {
+  const refreshParam = refresh ? '&refresh=true' : '';
   return fetch(
-    `${RECOMMENDER_HOST}/api/recommend?userId=${userId}&limit=${limit}&excludePlayed=${excludePlayed}`
+    `${RECOMMENDER_HOST}/api/recommend?userId=${userId}&limit=${limit}&excludePlayed=${excludePlayed}${refreshParam}`
   ).then(r => r.json());
 }
 

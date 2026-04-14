@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../models/db');
+const cache = require('../models/cache');
 
 // Record play event
 router.post('/play', (req, res) => {
@@ -11,6 +12,7 @@ router.post('/play', (req, res) => {
   }
 
   const result = db.addEvent(userId, songId, 'play', duration || 0, completed);
+  cache.invalidateCache(userId);
   res.json({ success: true, id: result.id });
 });
 
@@ -23,6 +25,7 @@ router.post('/skip', (req, res) => {
   }
 
   const result = db.addEvent(userId, songId, 'skip', skipTime || 0, false, songDuration);
+  cache.invalidateCache(userId);
   res.json({ success: true, id: result.id });
 });
 
@@ -49,6 +52,7 @@ router.post('/like', (req, res) => {
     action = 'liked';
   }
   
+  cache.invalidateCache(userId);
   res.json({ success: true, action });
 });
 
@@ -73,6 +77,7 @@ router.post('/like/:songId', (req, res) => {
     action = 'liked';
   }
   
+  cache.invalidateCache(userId);
   res.json({ success: true, action });
 });
 
@@ -85,6 +90,7 @@ router.post('/unlike', (req, res) => {
   }
 
   const result = db.addEvent(userId, songId, 'unlike', 0, false);
+  cache.invalidateCache(userId);
   res.json({ success: true, action: 'unliked', id: result.id });
 });
 

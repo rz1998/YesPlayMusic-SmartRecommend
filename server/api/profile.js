@@ -98,6 +98,8 @@ router.post('/sync-songs', (req, res) => {
     tags: s.tags,
   })));
   
+  // Clear all recommendation cache since song features changed
+  cache.clearAllCache();
   res.json({ success: true, count: songs.length });
 });
 

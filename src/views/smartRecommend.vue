@@ -3,6 +3,9 @@
     <div class="header">
       <div class="title">🧠 智能推荐</div>
       <div class="subtitle">根据你的喜好定制 · 越用越懂你</div>
+      <button class="refresh-btn" @click="refreshRecommendations" :disabled="loading">
+        🔄 刷新推荐
+      </button>
     </div>
 
     <div v-if="profile" class="stats">
@@ -87,6 +90,7 @@ export default {
 
       // 获取用户喜欢的歌曲数量（用于判断是否需要初始化）
       const likedCount = this.likedSongsCount;
+      let needsRefresh = false;
 
       // 如果有喜欢的歌曲，先同步到后端
       if (likedCount > 0) {
@@ -113,7 +117,11 @@ export default {
                   albumName: s.al?.name,
                   duration: s.dt,
                 }));
-                await syncSongs(songsToSync);
+                const result = await syncSongs(songsToSync);
+                // 标记需要刷新推荐（同步成功）
+                if (result.success) {
+                  needsRefresh = true;
+                }
               }
             } catch (e) {
               console.warn('Failed to sync batch:', i, e);
@@ -125,7 +133,9 @@ export default {
         }
       }
 
-      getRecommendations(this.userId, 30)
+      // 如果同步了歌曲，强制刷新推荐（绕过缓存）
+      const refreshParam = needsRefresh ? '&refresh=true' : '';
+      getRecommendations(this.userId, 30 + (needsRefresh ? 0 : 0)) // limit stays 30
         .then(result => {
           if (result.code === 200 || result.code === 0) {
             // 解析推荐结果
@@ -159,7 +169,9 @@ export default {
   padding: 32px;
 
   .header {
-    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
     margin-bottom: 48px;
 
     .title {
@@ -171,6 +183,28 @@ export default {
     .subtitle {
       font-size: 16px;
       color: var(--color-text);
+    }
+
+    .refresh-btn {
+      margin-top: 16px;
+      padding: 8px 16px;
+      background: var(--color-primary-bg);
+      color: var(--color-primary);
+      border: 1px solid var(--color-primary);
+      border-radius: 20px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: all 0.2s;
+
+      &:hover:not(:disabled) {
+        background: var(--color-primary);
+        color: #fff;
+      }
+
+      &:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
     }
   }
 

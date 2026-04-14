@@ -10,7 +10,7 @@
 ┌─────────────────────────────────────────────────────────────┐
 │                     前端 (Vue.js)                            │
 │  playBehaviorTracker.js   ← 追踪播放/跳过/点赞行为            │
-│  smartRecommend.vue       ← 智能推荐页面                      │
+│  smartRecommend.vue       ← 智能推荐页面（含手动刷新按钮）      │
 │  src/api/recommend.js    ← API 客户端                        │
 └─────────────────────────────┬───────────────────────────────┘
                               │ HTTP /api/event/*
@@ -18,13 +18,14 @@
 ┌─────────────────────────────────────────────────────────────┐
 │                   推荐服务 (Express.js)                       │
 │  server/api/events.js    ← 事件记录 API                      │
-│  server/api/recommend.js ← 推荐算法 API                      │
+│  server/api/recommend.js ← 推荐算法 API（含缓存）             │
 │  server/api/profile.js   ← 用户画像 API                      │
 │  server/models/db.js     ← SQLite 数据库封装                 │
-└─────────────────────────────┬───────────────────────────────┘
+│  server/models/cache.js  ← 推荐结果缓存（5分钟TTL）           │
+└─────────────────────────────────────────────────────────────┘
                               ▼
 ┌─────────────────────────────────────────────────────────────┐
-│              SQLite 数据库 (sql.js)                           │
+│              SQLite 数据库 (sql.js)                          │
 │  server/data/recommender.db                                  │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -108,6 +109,33 @@ final_score = like_score - 1.5 × skip_score
 
 ---
 
+## 推荐结果缓存
+
+### 缓存策略
+
+- **缓存位置**：服务端内存（`server/models/cache.js`）
+- **TTL**：5 分钟
+- **粒度**：按用户缓存
+
+### 缓存失效触发
+
+| 操作 | 缓存清除范围 |
+|------|-------------|
+| 用户播放/跳过/点赞/取消点赞 | 该用户的缓存 |
+| 用户同步歌曲到后端 | **所有用户**的缓存 |
+
+> 注意：同步歌曲会清除所有缓存，因为歌曲特征变化可能影响所有用户的推荐结果
+
+### 强制刷新
+
+客户端可使用 `?refresh=true` 参数强制刷新，绕过缓存：
+
+```
+GET /api/recommend?userId=xxx&limit=30&refresh=true
+```
+
+---
+
 ## API 接口
 
 ### 事件记录
@@ -126,6 +154,7 @@ final_score = like_score - 1.5 × skip_score
 | 接口 | 方法 | 说明 |
 |------|------|------|
 | `/api/recommend` | GET | 获取个性化推荐 |
+| `/api/recommend?refresh=true` | GET | 强制刷新推荐（绕过缓存）|
 | `/api/recommend/similar/:songId` | GET | 获取相似歌曲 |
 | `/api/recommend/debug` | GET | 调试：查看用户偏好向量 |
 
@@ -149,6 +178,12 @@ const DISLIKE_WEIGHT = 1.5;  // 排斥权重：越大越避免推荐同类歌曲
 // 客户端跳过检测配置 (src/mixins/playBehaviorTracker.js)
 const SKIP_RATIO_THRESHOLD = 0.3; // 30% 收听比例阈值
 const skipThreshold = 30;          // 兜底：秒数阈值
+```
+
+在 `server/models/cache.js` 中可调整缓存 TTL：
+
+```javascript
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 分钟
 ```
 
 ---
@@ -201,10 +236,6 @@ CREATE TABLE user_profiles (
 );
 ```
 
-### 数据库初始化
-
-首次启动时自动创建表结构，已有的数据库会自动跳过。
-
 ---
 
 ## 环境变量
@@ -240,15 +271,21 @@ yarn serve
 ## 变更记录
 
 ### 2026-04-14
-- ✅ 修复 like/unlike toggle 逻辑（之前 unlike 分支为空）
-- ✅ 修复 `getUserLikedSongs`：只返回最新事件为 like 的歌曲
-- ✅ 修复 skip "反悔"逻辑：skip 后再 like 的歌曲不会被排除
-- ✅ 修复 `getUserSkippedSongs`：只排除最新事件为 skip 的歌曲
-- ✅ 修复 `getUserSkippedSongsWithDetails`：同样支持反悔逻辑
-- ✅ 修复重复的 `/debug` 端点
-- ✅ 删除 `recommend()` 占位函数
-- ✅ 客户端 skip 检测改为基于 30% 收听比例（与文档一致）
-- ✅ 修复 `likedSongIds` 上限从 100 提升到 1000
-- ✅ 修复 `RECUMMENDER_HOST` 拼写错误 → `VUE_APP_RECOMMENDER_HOST`
-- ✅ 新增 `GET /api/event/liked/:userId` 批量查询点赞状态
-- ✅ 新增 `getUserEventsForSong()` 数据库函数
+
+#### 功能新增
+- ✅ **推荐结果缓存** - 服务端 5 分钟 TTL 缓存，减少重复计算
+- ✅ **同步后自动刷新** - 用户同步歌曲后自动刷新推荐结果
+- ✅ **手动刷新按钮** - 智能推荐页面新增「🔄 刷新推荐」按钮
+
+#### Bug 修复
+- 🔧 **like/unlike toggle** - 修复取消点赞功能不生效的问题
+- 🔧 **动态 skip penalty** - 客户端 skip 检测现在与文档一致（30% 收听比例）
+- 🔧 **skip 反悔逻辑** - 跳过后再点赞的歌曲现在可以正确被推荐
+- 🔧 **数据库查询优化** - 修复 liked/skipped 歌曲上限截断问题（100→1000）
+- 🔧 **代码清理** - 删除重复端点和死代码
+- 🔧 **RECUMMENDER_HOST 拼写错误** → `VUE_APP_RECOMMENDER_HOST`
+
+#### 新增 API/数据库函数
+- `GET /api/event/liked/:userId` - 批量查询歌曲点赞状态
+- `getUserEventsForSong()` - 获取单个歌曲的所有事件
+- `server/models/cache.js` - 共享缓存模块

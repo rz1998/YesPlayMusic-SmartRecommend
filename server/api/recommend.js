@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../models/db');
+const cache = require('../models/cache');
 
 // Debug endpoint - shows user preference vectors for debugging
 router.get('/debug', (req, res) => {
@@ -24,10 +25,24 @@ router.get('/debug', (req, res) => {
 
 // Get personalized recommendations
 router.get('/', (req, res) => {
-  const { userId, limit = 20, excludePlayed = true } = req.query;
+  const { userId, limit = 20, excludePlayed = true, refresh } = req.query;
   
   if (!userId) {
     return res.status(400).json({ error: 'userId is required' });
+  }
+
+  // Check cache first (skip cache if refresh=true)
+  if (refresh !== 'true') {
+    const cached = cache.getCachedRecommendations(userId);
+    if (cached) {
+      console.log(`📦 Cache hit for user: ${userId}`);
+      // Apply limit to cached results
+      const limited = cached.recommendations.slice(0, parseInt(limit));
+      return res.json({
+        recommendations: limited,
+        meta: { ...cached.meta, cached: true },
+      });
+    }
   }
 
   try {
@@ -93,17 +108,27 @@ router.get('/', (req, res) => {
           skipScore,
         };
       })
-      .sort((a, b) => b.score - a.score)
-      .slice(0, parseInt(limit));
+      .sort((a, b) => b.score - a.score);
     
-    res.json({
+    const result = {
       recommendations: scoredCandidates,
       meta: {
         userId,
         totalCandidates: candidates.length,
         likedCount: likedSongIds.length,
         skippedCount: skippedSongIds.length,
-      }
+        cached: false,
+      },
+    };
+    
+    // Cache the full results
+    cache.setCachedRecommendations(userId, result);
+    console.log(`💾 Cached recommendations for user: ${userId}`);
+    
+    // Return limited results
+    res.json({
+      recommendations: scoredCandidates.slice(0, parseInt(limit)),
+      meta: result.meta,
     });
     
   } catch (error) {
