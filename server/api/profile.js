@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../models/db');
+const cache = require('../models/cache');
 
 // Get user profile / statistics
 router.get('/profile/:userId', (req, res) => {
@@ -67,6 +68,8 @@ router.post('/sync-song', (req, res) => {
     name: name || songName,
   });
   
+  // Clear all recommendation cache since song features changed
+  cache.clearAllCache();
   res.json({ success: true });
 });
 

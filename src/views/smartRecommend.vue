@@ -160,6 +160,25 @@ export default {
           NProgress.done();
         });
     },
+    refreshRecommendations() {
+      // Force refresh bypassing cache
+      this.loading = true;
+      NProgress.start();
+      getRecommendations(this.userId, 30, true) // pass true for refresh
+        .then(result => {
+          if (result.code === 200 || result.code === 0) {
+            this.recommendations = result.recommendations || [];
+            this.hasEnoughData = this.recommendations.length > 0;
+          }
+        })
+        .catch(err => {
+          console.error('Failed to refresh recommendations:', err);
+        })
+        .finally(() => {
+          this.loading = false;
+          NProgress.done();
+        });
+    },
   },
 };
 </script>
