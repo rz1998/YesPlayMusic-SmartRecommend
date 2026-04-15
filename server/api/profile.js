@@ -49,7 +49,7 @@ router.get('/profile/:userId', (req, res) => {
 
 // Sync song data
 router.post('/sync-song', (req, res) => {
-  const { songId, artistId, artistName, albumId, albumName, duration, bpm, genre, publishTime, name, songName } = req.body;
+  const { songId, userId, artistId, artistName, albumId, albumName, duration, bpm, genre, publishTime, name, songName } = req.body;
   
   if (!songId) {
     return res.status(400).json({ error: 'songId is required' });
@@ -68,14 +68,14 @@ router.post('/sync-song', (req, res) => {
     name: name || songName,
   });
   
-  // Clear anonymous user cache since song features changed
-  cache.invalidateCache('anonymous');
+  // Clear this user's cache since song features changed
+  cache.invalidateCache(userId);
   res.json({ success: true });
 });
 
 // Bulk sync songs
 router.post('/sync-songs', (req, res) => {
-  const { songs } = req.body;
+  const { songs, userId } = req.body;
   const MAX_BATCH_SIZE = 500; // Limit songs per request
   
   if (!Array.isArray(songs)) {
@@ -105,8 +105,8 @@ router.post('/sync-songs', (req, res) => {
     tags: s.tags,
   })));
   
-  // Clear anonymous user cache since song features changed
-  cache.invalidateCache('anonymous');
+  // Clear this user's cache since song features changed
+  cache.invalidateCache(userId);
   res.json({ success: true, count: limitedSongs.length, truncated: songs.length > MAX_BATCH_SIZE });
 });
 

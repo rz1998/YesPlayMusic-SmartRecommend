@@ -117,7 +117,7 @@ export default {
                   albumName: s.al?.name,
                   duration: s.dt,
                 }));
-                const result = await syncSongs(songsToSync);
+                const result = await syncSongs(songsToSync, this.userId);
                 // 标记需要刷新推荐（同步成功）
                 if (result.success) {
                   needsRefresh = true;

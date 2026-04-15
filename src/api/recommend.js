@@ -102,11 +102,12 @@ export function getSimilarSongs(songId, limit = 10) {
 /**
  * Sync song data to recommender
  * @param {Array} songs - Array of song objects
+ * @param {string} userId - User ID
  */
-export function syncSongs(songs) {
+export function syncSongs(songs, userId) {
   return fetch(`${RECOMMENDER_HOST}/api/user/sync-songs`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ songs }),
+    body: JSON.stringify({ songs, userId }),
   }).then(r => r.json());
 }
