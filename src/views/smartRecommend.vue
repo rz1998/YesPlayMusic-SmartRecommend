@@ -134,8 +134,7 @@ export default {
       }
 
       // 如果同步了歌曲，强制刷新推荐（绕过缓存）
-      const refreshParam = needsRefresh ? '&refresh=true' : '';
-      getRecommendations(this.userId, 30 + (needsRefresh ? 0 : 0)) // limit stays 30
+      getRecommendations(this.userId, 30, true, needsRefresh)
         .then(result => {
           if (result.code === 200 || result.code === 0) {
             // 解析推荐结果
