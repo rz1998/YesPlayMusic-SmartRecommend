@@ -163,7 +163,7 @@ export default {
       // Force refresh bypassing cache
       this.loading = true;
       NProgress.start();
-      getRecommendations(this.userId, 30, 'true') // pass 'true' string for refresh
+      getRecommendations(this.userId, 30, true, true) // excludePlayed=true, refresh=true
         .then(result => {
           if (result.code === 200 || result.code === 0) {
             this.recommendations = result.recommendations || [];
