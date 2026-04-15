@@ -3,7 +3,11 @@
     <div class="header">
       <div class="title">🧠 智能推荐</div>
       <div class="subtitle">根据你的喜好定制 · 越用越懂你</div>
-      <button class="refresh-btn" @click="refreshRecommendations" :disabled="loading">
+      <button
+        class="refresh-btn"
+        @click="refreshRecommendations"
+        :disabled="loading"
+      >
         🔄 刷新推荐
       </button>
     </div>

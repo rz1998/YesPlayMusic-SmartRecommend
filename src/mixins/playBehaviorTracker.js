@@ -81,13 +81,16 @@ export default {
       this.finalizeListenDuration();
 
       const playedDuration = this.listenDuration;
-      const songDuration = oldTrack.duration ? Math.floor(oldTrack.duration / 1000) : 0; // convert ms to sec
+      const songDuration = oldTrack.duration
+        ? Math.floor(oldTrack.duration / 1000)
+        : 0; // convert ms to sec
 
       // Detect if it was a skip based on listen ratio
       // Skip if: played less than 30% of song AND didn't like the track
       const SKIP_RATIO_THRESHOLD = 0.3; // 30% listen threshold for skip detection
       const listenRatio = songDuration > 0 ? playedDuration / songDuration : 0;
-      const isSkip = listenRatio < SKIP_RATIO_THRESHOLD && !this.isLikedTrack(oldTrack.id);
+      const isSkip =
+        listenRatio < SKIP_RATIO_THRESHOLD && !this.isLikedTrack(oldTrack.id);
 
       if (isSkip) {
         // Record skip with listen duration info for dynamic skip penalty calculation
@@ -167,7 +170,8 @@ export default {
       this.finalizeListenDuration();
       this.pauseListenTimer();
 
-      const duration = songDuration || (song.duration ? Math.floor(song.duration / 1000) : 0);
+      const duration =
+        songDuration || (song.duration ? Math.floor(song.duration / 1000) : 0);
       const actualListenDuration = listenDuration || this.listenDuration;
 
       // Record skip with listen duration info for dynamic skip penalty calculation on server
