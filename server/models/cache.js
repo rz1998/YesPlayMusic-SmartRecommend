@@ -4,7 +4,17 @@
  */
 
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const MAX_CACHE_SIZE = 100; // Maximum number of users to cache
 const recommendationCache = new Map();
+
+function enforceCacheLimit() {
+  if (recommendationCache.size >= MAX_CACHE_SIZE) {
+    // Remove oldest entry (first inserted)
+    const firstKey = recommendationCache.keys().next().value;
+    recommendationCache.delete(firstKey);
+    console.log(`🗑️ Cache limit reached, evicted user: ${firstKey}`);
+  }
+}
 
 function getCachedRecommendations(userId) {
   const cached = recommendationCache.get(userId);
@@ -15,6 +25,7 @@ function getCachedRecommendations(userId) {
 }
 
 function setCachedRecommendations(userId, data) {
+  enforceCacheLimit();
   recommendationCache.set(userId, { data, timestamp: Date.now() });
 }
 

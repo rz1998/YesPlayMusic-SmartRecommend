@@ -68,20 +68,24 @@ router.post('/sync-song', (req, res) => {
     name: name || songName,
   });
   
-  // Clear all recommendation cache since song features changed
-  cache.clearAllCache();
+  // Clear anonymous user cache since song features changed
+  cache.invalidateCache('anonymous');
   res.json({ success: true });
 });
 
 // Bulk sync songs
 router.post('/sync-songs', (req, res) => {
   const { songs } = req.body;
+  const MAX_BATCH_SIZE = 500; // Limit songs per request
   
   if (!Array.isArray(songs)) {
     return res.status(400).json({ error: 'songs array is required' });
   }
   
-  db.saveSongs(songs.map(s => ({
+  // Limit batch size
+  const limitedSongs = songs.slice(0, MAX_BATCH_SIZE);
+  
+  db.saveSongs(limitedSongs.map(s => ({
     songId: s.id || s.songId,
     artistId: s.artistId || s.artist?.id,
     artistName: s.artist?.name || s.artistName,
@@ -101,9 +105,9 @@ router.post('/sync-songs', (req, res) => {
     tags: s.tags,
   })));
   
-  // Clear all recommendation cache since song features changed
-  cache.clearAllCache();
-  res.json({ success: true, count: songs.length });
+  // Clear anonymous user cache since song features changed
+  cache.invalidateCache('anonymous');
+  res.json({ success: true, count: limitedSongs.length, truncated: songs.length > MAX_BATCH_SIZE });
 });
 
 module.exports = router;
