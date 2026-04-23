@@ -325,6 +325,8 @@ yarn serve
 - 🔧 **候选池上限不足** - 推荐候选池从 1000 扩展到 5000 首
 - 🔧 **刷新不重新同步** - 手动刷新时会重新同步新增的网易云喜欢歌曲
 - 🔧 **推荐为空无降级** - 无推荐结果时返回最近同步歌曲作为降级
+- 🔧 **liked+played 权重混淆** - concat 后统一用 weight=3，修复为分别计算向量后 merge 合并
+- 🔧 **topArtists 艺术家名称失效** - 查找条件 songId===artistId，修复为 artistId===artistId
 
 #### 性能优化
 - 🔧 **批量数据库写入** - `syncSongs` 从逐条 INSERT 改为复用 `saveSong` 批量写入
@@ -335,13 +337,15 @@ yarn serve
 - `GET /api/event/liked/:userId` - 批量查询歌曲点赞状态
 - `getUserPlayedSongs(userId, limit)` - 获取用户播放过的歌曲（latest event='play'）
 - `/api/user/sync-songs` 新增 `recordLikes` 参数（布尔值）
+- `mergePreferenceVectors(v1, v2)` - 合并 liked 和 played 偏好向量（频次正确累加）
 
 #### 单元测试
-- ✅ **Jest 测试框架** - 46 个测试用例覆盖推荐算法和缓存模块
+- ✅ **Jest 测试框架** - 49 个测试用例覆盖推荐算法和缓存模块
   - 动态 Skip Penalty 公式验证
   - 推荐评分公式 `final_score = likeScore - 1.5 × skipScore`
   - 多维度匹配权重
   - like/unlike 双向追踪
+  - liked/played 向量合并（mergePreferenceVectors）
   - 缓存 TTL/失效/上限保护
 
 ### 2026-04-14
