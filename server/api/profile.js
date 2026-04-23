@@ -27,7 +27,7 @@ router.get('/profile/:userId', (req, res) => {
     .slice(0, 10)
     .map(([artistId, count]) => {
       // 找到对应歌曲以获取艺术家名称
-      const song = playSongs.find(s => String(s.songId) === artistId);
+      const song = playSongs.find(s => String(s.artistId) === artistId);
       return {
         artistId,
         artistName: song?.artistName || artistId,
