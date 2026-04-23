@@ -1,6 +1,6 @@
 # 智能推荐系统文档
 
-> 最后更新：2026-04-14
+> 最后更新：2026-04-23
 
 ---
 
@@ -20,7 +20,7 @@
 │  server/api/events.js    ← 事件记录 API                      │
 │  server/api/recommend.js ← 推荐算法 API（含缓存）             │
 │  server/api/profile.js   ← 用户画像 API                      │
-│  server/models/db.js     ← SQLite 数据库封装                 │
+│  server/models/db.js     ← SQLite 数据库封装（含 getUserPlayedSongs）
 │  server/models/cache.js  ← 推荐结果缓存（5分钟TTL）           │
 └─────────────────────────────────────────────────────────────┘
                               ▼
@@ -36,7 +36,7 @@
 
 | 事件类型 | 说明 | 权重 |
 |---------|------|------|
-| `play` | 用户完整播放一首歌 | +1 |
+| `play` | 用户完整播放一首歌（纳入偏好向量，权重1） | +1 |
 | `like` | 用户点赞一首歌曲 | +3 |
 | `skip` | 用户跳过一首歌曲（基于收听比例动态计算惩罚）| -0.1 ~ -1.0 |
 | `unlike` | 用户取消点赞 | 状态切换 |
@@ -116,13 +116,14 @@ final_score = like_score - 1.5 × skip_score
 - **缓存位置**：服务端内存（`server/models/cache.js`）
 - **TTL**：5 分钟
 - **粒度**：按用户缓存
+- **上限**：100 个用户（超出时清除最旧缓存）
 
 ### 缓存失效触发
 
 | 操作 | 缓存清除范围 |
 |------|-------------|
 | 用户播放/跳过/点赞/取消点赞 | 该用户的缓存 |
-| 用户同步歌曲到后端 | **所有用户**的缓存 |
+| 用户同步歌曲到后端（sync-song/sync-songs） | **所有用户**的缓存 |
 
 > 注意：同步歌曲会清除所有缓存，因为歌曲特征变化可能影响所有用户的推荐结果
 
@@ -153,7 +154,7 @@ GET /api/recommend?userId=xxx&limit=30&refresh=true
 
 | 接口 | 方法 | 说明 |
 |------|------|------|
-| `/api/recommend` | GET | 获取个性化推荐 |
+| `/api/recommend` | GET | 获取个性化推荐（排除 liked/skipped/played 歌曲） |
 | `/api/recommend?refresh=true` | GET | 强制刷新推荐（绕过缓存）|
 | `/api/recommend/similar/:songId` | GET | 获取相似歌曲 |
 | `/api/recommend/debug` | GET | 调试：查看用户偏好向量 |
@@ -310,11 +311,38 @@ yarn serve
 - ✅ **冷启动推荐** - 新用户从网易云喜欢列表自动导入初始偏好，打开页面即有推荐
 - ✅ **端口自动迁移** - 后端启动时自动寻找可用端口（3001→3002→...）
 - ✅ **一键启动脚本** - `./start.sh` 同时启动前后端，Ctrl+C 一起关闭
+- ✅ **播放事件纳入偏好** - play 事件（完整收听）作为正向信号合并到喜好向量，权重1
+- ✅ **已播放歌曲排除** - 推荐时排除已播放歌曲（liked + skipped + played 三重排除）
+- ✅ **艺术家名称返回** - `/api/user/profile` 的 `topArtists` 字段新增 `artistName`
 
 #### Bug 修复
 - 🔧 **profile 数据未加载** - `smartRecommend.vue` 从未调用 `getUserProfile` API
-- 🔧 **缓存清除范围** - sync-songs 时 `invalidateCache(userId)` → `clearAllCache()`
+- 🔧 **缓存清除范围** - sync-songs/sync-song 时 `invalidateCache` → `clearAllCache()`
 - 🔧 **重复端点** - `POST /api/event/like/:songId` 与 `POST /api/event/like` 冲突
+- 🔧 **降级逻辑失效** - 上次修复引入的回归：`res.json` 用错变量导致降级推荐从不生效
+- 🔧 **likesRecorded 计数错误** - 改为实际新增 like 记录数（排除已有历史事件的歌曲）
+- 🔧 **同步重复请求** - 新增 localStorage 记录 likedCount，数量变化才重新同步
+- 🔧 **候选池上限不足** - 推荐候选池从 1000 扩展到 5000 首
+- 🔧 **刷新不重新同步** - 手动刷新时会重新同步新增的网易云喜欢歌曲
+- 🔧 **推荐为空无降级** - 无推荐结果时返回最近同步歌曲作为降级
+
+#### 性能优化
+- 🔧 **批量数据库写入** - `syncSongs` 从逐条 INSERT 改为复用 `saveSong` 批量写入
+- 🔧 **getUserLikedSongs limit** - 默认从 100 提升到 1000
+- 🔧 **getUserSkippedSongs limit** - 默认从 100 提升到 500
+
+#### 新增 API/数据库函数
+- `GET /api/event/liked/:userId` - 批量查询歌曲点赞状态
+- `getUserPlayedSongs(userId, limit)` - 获取用户播放过的歌曲（latest event='play'）
+- `/api/user/sync-songs` 新增 `recordLikes` 参数（布尔值）
+
+#### 单元测试
+- ✅ **Jest 测试框架** - 46 个测试用例覆盖推荐算法和缓存模块
+  - 动态 Skip Penalty 公式验证
+  - 推荐评分公式 `final_score = likeScore - 1.5 × skipScore`
+  - 多维度匹配权重
+  - like/unlike 双向追踪
+  - 缓存 TTL/失效/上限保护
 
 ### 2026-04-14
 
