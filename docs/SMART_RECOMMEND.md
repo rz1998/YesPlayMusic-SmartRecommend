@@ -327,6 +327,7 @@ yarn serve
 - 🔧 **推荐为空无降级** - 无推荐结果时返回最近同步歌曲作为降级
 - 🔧 **liked+played 权重混淆** - concat 后统一用 weight=3，修复为分别计算向量后 merge 合并
 - 🔧 **topArtists 艺术家名称失效** - 查找条件 songId===artistId，修复为 artistId===artistId
+- 🔧 **getDecade 兼容年份数字** - 修复 publishTime 为年份数字（如2024）而非时间戳的兼容
 
 #### 性能优化
 - 🔧 **批量数据库写入** - `syncSongs` 从逐条 INSERT 改为复用 `saveSong` 批量写入
@@ -340,7 +341,7 @@ yarn serve
 - `mergePreferenceVectors(v1, v2)` - 合并 liked 和 played 偏好向量（频次正确累加）
 
 #### 单元测试
-- ✅ **Jest 测试框架** - 49 个测试用例覆盖推荐算法和缓存模块
+- ✅ **Jest 测试框架** - 51 个测试用例覆盖推荐算法和缓存模块
   - 动态 Skip Penalty 公式验证
   - 推荐评分公式 `final_score = likeScore - 1.5 × skipScore`
   - 多维度匹配权重

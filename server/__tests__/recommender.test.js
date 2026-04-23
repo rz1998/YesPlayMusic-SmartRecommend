@@ -512,13 +512,21 @@ describe('推荐算法 - 规格对照测试', () => {
       const ts = new Date('2018-07-20').getTime() / 1000;
       expect(getDecade(ts)).toBe('10s');
     });
-    test('2020-2029 → 20s', () => {
+    test('2020-2029 → 20s（时间戳格式）', () => {
       const ts = new Date('2024-03-01').getTime() / 1000;
       expect(getDecade(ts)).toBe('20s');
     });
     test('无时间戳 → unknown', () => {
       expect(getDecade(0)).toBe('unknown');
       expect(getDecade(null)).toBe('unknown');
+    });
+    test('publishTime为年份数字（如2024）→ 正确解析为20s', () => {
+      expect(getDecade(2024)).toBe('20s');
+      expect(getDecade(2015)).toBe('10s');
+      expect(getDecade(1998)).toBe('90s');
+    });
+    test('publishTime为时间戳秒（如1704067200=2024-01-01）→ 正确解析', () => {
+      expect(getDecade(1704067200)).toBe('20s');
     });
 
     test('publishTime为年份数字（如2024）→ 正确解析为20s', () => {
