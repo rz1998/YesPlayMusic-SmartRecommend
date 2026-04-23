@@ -58,8 +58,13 @@ router.get('/', (req, res) => {
     });
     const skippedSongIds = skippedSongDetails.map(d => d.songId);
     
-    // 3. Calculate user preference vector
-    const likeVector = computePreferenceVector(likedSongs, 'like');
+    // 3. Get played songs (latest event='play', for positive preference signal)
+    const playedSongIds = db.getUserPlayedSongs(userId, 500);
+    const playedSongs = db.getSongs(playedSongIds);
+    
+    // 4. Calculate user preference vector (likes + plays → positive preference)
+    // Play 事件权重为 1（完整播放表示正向偏好，虽弱于 like=3）
+    const likeVector = computePreferenceVector(likedSongs.concat(playedSongs), 'like');
     const skippedSongs = db.getSongs(skippedSongIds);
     // Build events array with duration info for dynamic skip weight
     const skipEvents = skippedSongDetails.map(d => {
@@ -76,9 +81,17 @@ router.get('/', (req, res) => {
     // 4. Get candidate songs
     const candidates = db.getAllSongs(5000);
     
-    // Filter out played songs if needed
+    // Build exclusion set: songs that should not appear in recommendations
+    // 排除列表 = 已喜欢歌曲 + 已跳过歌曲 + 已播放歌曲（用户已接触过的内容）
+    const excludeSet = new Set([
+      ...likedSongIds.map(id => String(id)),
+      ...skippedSongIds.map(id => String(id)),
+      ...playedSongIds.map(id => String(id)),
+    ]);
+    
+    // Filter out already-interacted songs if needed
     const filteredCandidates = excludePlayed === 'true' || excludePlayed === true
-      ? candidates.filter(s => !likedSongIds.includes(String(s.songId)))
+      ? candidates.filter(s => !excludeSet.has(String(s.songId)))
       : candidates;
     
     // 5. Score candidates
@@ -115,10 +128,12 @@ router.get('/', (req, res) => {
     if (finalRecommendations.length === 0 && likedSongIds.length > 0) {
       // 降级：用最近同步的歌曲（排除已喜欢/已跳过）
       const fallbackCandidates = db.getAllSongs(50)
-        .filter(s =>
-          !likedSongIds.includes(String(s.songId)) &&
-          !skippedSongIds.includes(String(s.songId))
-        );
+        .filter(s => {
+          const sid = String(s.songId);
+          return !likedSongIds.includes(sid) &&
+                 !skippedSongIds.includes(sid) &&
+                 !playedSongIds.includes(sid);
+        });
       finalRecommendations = fallbackCandidates.map(song => ({
         id: song.songId,
         name: song.name || song.songName,
@@ -143,6 +158,7 @@ router.get('/', (req, res) => {
         userId,
         totalCandidates: candidates.length,
         likedCount: likedSongIds.length,
+        playedCount: playedSongIds.length,
         skippedCount: skippedSongIds.length,
         cached: false,
       },
@@ -222,7 +238,7 @@ function computePreferenceVector(songs, eventType) {
         const listenRatio = Math.min(1, song.listenDuration / song.songDuration);
         weight = -1 * (1 - listenRatio);  // 0% 收听 = -1.0, 90% 收听 = -0.1
       } else {
-        weight = -1;  // 兜底：无法确定时长时使用完整惩罚
+        weight = -1;  // 兜底：无法确定时长或时长为0时使用完整惩罚
       }
     } else {
       weight = baseWeights[eventType] || 1;

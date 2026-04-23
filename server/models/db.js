@@ -196,6 +196,32 @@ function getUserLikedSongs(userId, limit = 1000) {
   return likedSongs;
 }
 
+// Get user's played songs (only songs where the latest event is 'play', not 'skip'/'like'/'unlike')
+function getUserPlayedSongs(userId, limit = 500) {
+  const results = query(
+    `SELECT song_id, event_type, created_at FROM user_events
+     WHERE user_id = ? AND event_type IN ('play', 'skip', 'like', 'unlike')
+     ORDER BY created_at DESC`,
+    [userId]
+  );
+  
+  // Build a map: song_id -> latest event_type (first occurrence = latest due to DESC order)
+  const latestEventMap = {};
+  for (const row of results) {
+    if (latestEventMap[row.song_id] === undefined) {
+      latestEventMap[row.song_id] = row.event_type;
+    }
+  }
+  
+  // Only return songs where latest event is 'play'
+  const playedSongs = Object.entries(latestEventMap)
+    .filter(([_, eventType]) => eventType === 'play')
+    .map(([songId, _]) => songId)
+    .slice(0, limit);
+  
+  return playedSongs;
+}
+
 // Get user's skipped songs (only songs where the latest event is 'skip', not 'like' or 'unlike')
 // Songs that were skipped but later liked are NOT excluded from recommendations
 function getUserSkippedSongs(userId, limit = 500) {
@@ -391,6 +417,7 @@ module.exports = {
   addEvent,
   getUserEvents,
   getUserEventsForSong,
+  getUserPlayedSongs,
   getUserLikedSongs,
   getUserSkippedSongs,
   getUserSkippedSongsWithDetails,

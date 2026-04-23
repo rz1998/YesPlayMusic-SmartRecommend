@@ -25,7 +25,15 @@ router.get('/profile/:userId', (req, res) => {
   const topArtists = Object.entries(artistCounts)
     .sort((a, b) => b[1] - a[1])
     .slice(0, 10)
-    .map(([artistId, count]) => ({ artistId, count }));
+    .map(([artistId, count]) => {
+      // 找到对应歌曲以获取艺术家名称
+      const song = playSongs.find(s => String(s.songId) === artistId);
+      return {
+        artistId,
+        artistName: song?.artistName || artistId,
+        count,
+      };
+    });
   
   res.json({
     userId,
