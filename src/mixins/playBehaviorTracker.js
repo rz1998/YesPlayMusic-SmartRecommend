@@ -98,7 +98,7 @@ export default {
       } else if (playedDuration > this.skipThreshold) {
         // Record as completed play
         const completed =
-          playedDuration >= (this.previousTrackDuration || 0) * 0.8;
+          playedDuration >= (this.previousTrackDuration || 0) * 0.7;
         this.recordPlay(oldTrack.id, playedDuration, completed);
       }
     },

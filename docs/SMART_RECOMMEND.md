@@ -150,15 +150,18 @@ final_score(s) = like_score(s) - α × skip_score(s)
 
 ```
 match_score = {
-  artist:  匹配 → 0.50,
-  genre:   匹配 → 0.30,
-  mood:    匹配 → 0.20,
-  lang:    匹配 → 0.25,
-  decade:  匹配 → 0.10,
-  bpm:     1 - |avgBpm - songBpm| / 50,  权重 0.10（仅正向）,
-  energy:  1 - |avgEnergy - songEnergy| × 2,  权重 0.05（仅正向）,
+  artist:      匹配 → 0.50,
+  genre:       匹配 → 0.30,
+  mood:        匹配 → 0.20,
+  lang:        匹配 → 0.25,
+  decade:      匹配 → 0.10,
+  bpm:         1 - |avgBpm - songBpm| / 50,       权重 0.10（仅正向）,
+  energy:      1 - |avgEnergy - songEnergy| × 2,     权重 0.05（仅正向）,
+  danceability: 1 - |avgDance - songDance| × 2,      权重 0.05（仅正向）,
 }
 ```
+
+总权重 = 1.50
 
 总得分归一化：
 
