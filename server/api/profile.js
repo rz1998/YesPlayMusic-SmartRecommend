@@ -74,24 +74,32 @@ router.post('/sync-song', (req, res) => {
 });
 
 // Bulk sync songs
+// Options:
+//   - songs: array of song objects (required)
+//   - userId: user ID (required)
+//   - recordLikes: if true, also record each song as a 'like' event (for cold start from Netease liked songs)
 router.post('/sync-songs', (req, res) => {
-  const { songs, userId } = req.body;
+  const { songs, userId, recordLikes = false } = req.body;
   const MAX_BATCH_SIZE = 500; // Limit songs per request
-  
+
   if (!Array.isArray(songs)) {
     return res.status(400).json({ error: 'songs array is required' });
   }
-  
+  if (!userId) {
+    return res.status(400).json({ error: 'userId is required' });
+  }
+
   // Limit batch size
   const limitedSongs = songs.slice(0, MAX_BATCH_SIZE);
-  
+
+  // Save song metadata to DB
   db.saveSongs(limitedSongs.map(s => ({
     songId: s.id || s.songId,
-    artistId: s.artistId || s.artist?.id,
-    artistName: s.artist?.name || s.artistName,
-    albumId: s.album?.id || s.albumId,
-    albumName: s.album?.name || s.albumName,
-    duration: s.duration,
+    artistId: s.artistId || (s.ar && s.ar[0] && s.ar[0].id),
+    artistName: s.artistName || (s.ar && s.ar.map(a => a.name).join(',')),
+    albumId: s.albumId || (s.al && s.al.id),
+    albumName: s.albumName || (s.al && s.al.name),
+    duration: s.duration || s.dt,
     bpm: s.bpm,
     genre: s.genre,
     publishTime: s.publishTime,
@@ -104,10 +112,29 @@ router.post('/sync-songs', (req, res) => {
     danceability: s.danceability,
     tags: s.tags,
   })));
-  
+
+  // ── 冷启动：用户网易云喜欢的歌曲 → 记录为 'like' 事件 ──
+  if (recordLikes && userId) {
+    for (const song of limitedSongs) {
+      const songId = String(song.id || song.songId);
+      const duration = song.duration || song.dt || 0;
+      // 检查是否已有该歌曲的更早事件（有则跳过，避免重复 like 记录）
+      const existingEvents = db.getUserEventsForSong(userId, songId);
+      if (existingEvents.length === 0) {
+        // 无历史事件 → 记录为 like，播放时长设为完整（用户表示喜欢）
+        db.addEvent(userId, songId, 'like', duration, true, duration);
+      }
+    }
+  }
+
   // Clear ALL users' cache since song features may affect all recommendations
   cache.clearAllCache();
-  res.json({ success: true, count: limitedSongs.length, truncated: songs.length > MAX_BATCH_SIZE });
+  res.json({
+    success: true,
+    count: limitedSongs.length,
+    truncated: songs.length > MAX_BATCH_SIZE,
+    likesRecorded: recordLikes ? limitedSongs.length : 0,
+  });
 });
 
 module.exports = router;

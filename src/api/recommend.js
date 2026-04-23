@@ -108,11 +108,12 @@ export function getSimilarSongs(songId, limit = 10) {
  * Sync song data to recommender
  * @param {Array} songs - Array of song objects
  * @param {string} userId - User ID
+ * @param {boolean} recordLikes - If true, also record each song as a 'like' event (for cold start)
  */
-export function syncSongs(songs, userId) {
+export function syncSongs(songs, userId, recordLikes = false) {
   return fetch(`${RECOMMENDER_HOST}/api/user/sync-songs`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ songs, userId }),
+    body: JSON.stringify({ songs, userId, recordLikes }),
   }).then(r => r.json());
 }
