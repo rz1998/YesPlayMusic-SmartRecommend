@@ -198,24 +198,26 @@ function getUserLikedSongs(userId, limit = 1000) {
 
 // Get user's played songs (only songs where the latest event is 'play', not 'skip'/'like'/'unlike')
 function getUserPlayedSongs(userId, limit = 500) {
+  // Only count songs where the latest event is a completed play (completed=1).
+  // A partial play (completed=0) does NOT count toward "played" — user didn't finish it.
   const results = query(
-    `SELECT song_id, event_type, created_at FROM user_events
+    `SELECT song_id, event_type, completed FROM user_events
      WHERE user_id = ? AND event_type IN ('play', 'skip', 'like', 'unlike')
      ORDER BY created_at DESC`,
     [userId]
   );
   
-  // Build a map: song_id -> latest event_type (first occurrence = latest due to DESC order)
+  // Build a map: song_id -> latest event info (first occurrence = latest due to DESC order)
   const latestEventMap = {};
   for (const row of results) {
     if (latestEventMap[row.song_id] === undefined) {
-      latestEventMap[row.song_id] = row.event_type;
+      latestEventMap[row.song_id] = { eventType: row.event_type, completed: row.completed };
     }
   }
   
-  // Only return songs where latest event is 'play'
+  // Only return songs where latest event is 'play' AND completed=1 (fully listened)
   const playedSongs = Object.entries(latestEventMap)
-    .filter(([_, eventType]) => eventType === 'play')
+    .filter(([_, info]) => info.eventType === 'play' && info.completed === 1)
     .map(([songId, _]) => songId)
     .slice(0, limit);
   
