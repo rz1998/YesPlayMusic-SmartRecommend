@@ -1,370 +1,366 @@
-# 智能推荐系统文档
+# 智能推荐系统 - 算法规格说明书
 
 > 最后更新：2026-04-23
 
 ---
 
-## 系统架构
+## 📋 目录
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                     前端 (Vue.js)                            │
-│  playBehaviorTracker.js   ← 追踪播放/跳过/点赞行为            │
-│  smartRecommend.vue       ← 智能推荐页面（含手动刷新按钮）      │
-│  src/api/recommend.js    ← API 客户端                        │
-└─────────────────────────────┬───────────────────────────────┘
-                              │ HTTP /api/event/*
-                              ▼
-┌─────────────────────────────────────────────────────────────┐
-│                   推荐服务 (Express.js)                       │
-│  server/api/events.js    ← 事件记录 API                      │
-│  server/api/recommend.js ← 推荐算法 API（含缓存）             │
-│  server/api/profile.js   ← 用户画像 API                      │
-│  server/models/db.js     ← SQLite 数据库封装（含 getUserPlayedSongs）
-│  server/models/cache.js  ← 推荐结果缓存（5分钟TTL）           │
-└─────────────────────────────────────────────────────────────┘
-                              ▼
-┌─────────────────────────────────────────────────────────────┐
-│              SQLite 数据库 (sql.js)                          │
-│  server/data/recommender.db                                  │
-└─────────────────────────────────────────────────────────────┘
-```
+1. [喜欢标准](#1-喜欢标准) — 什么算喜欢/跳过/播放
+2. [核心公式](#2-核心公式) — 完整数学公式
+3. [推荐流程](#3-推荐流程) — 算法执行步骤
+4. [文件结构](#4-文件结构) — 源码组织
+5. [API 参考](#5-api-参考)
+6. [数据库](#6-数据库)
+7. [配置参数](#7-配置参数)
+8. [变更记录](#8-变更记录)
 
 ---
 
-## 用户行为事件
+## 1. 喜欢标准
 
-| 事件类型 | 说明 | 权重 |
-|---------|------|------|
-| `play` | 用户完整播放一首歌（纳入偏好向量，权重1） | +1 |
-| `like` | 用户点赞一首歌曲 | +3 |
-| `skip` | 用户跳过一首歌曲（基于收听比例动态计算惩罚）| -0.1 ~ -1.0 |
-| `unlike` | 用户取消点赞 | 状态切换 |
+### 行为事件类型
 
-### 动态 Skip Penalty（核心创新）
+| 事件 | 触发条件 | 记录方式 | 推荐权重 |
+|------|---------|---------|---------|
+| **like** | 用户点击 ❤️ 按钮 | `POST /api/event/like` | **+3** |
+| **play** | 用户完整播放一首歌（听完 ≥70%） | `POST /api/event/play` | **+1** |
+| **skip** | 用户主动跳过（收听 < 30%） | `POST /api/event/skip` | **动态惩罚** |
+| **unlike** | 用户取消点赞（点击红心取消） | `POST /api/event/like` toggle | 撤销 like |
 
-传统推荐系统的 skip 惩罚是固定的，本系统的核心创新在于**动态计算 skip 权重**：
-
-```
-skip_weight = -1 * (1 - listen_ratio)
-```
-
-- **0% 收听** → `skip_weight = -1.0`（完整惩罚，表示强烈不喜欢）
-- **50% 收听** → `skip_weight = -0.5`（中等惩罚）
-- **90% 收听** → `skip_weight = -0.1`（轻微惩罚，可能是外部原因导致跳过）
-
-客户端基于 **30% 收听比例** 判断是否为 skip：
+### skip 判定标准（客户端）
 
 ```javascript
-const SKIP_RATIO_THRESHOLD = 0.3; // 30%
 const listenRatio = playedDuration / songDuration;
 const isSkip = listenRatio < 0.3 && !isLikedTrack;
 ```
 
----
-
-## 推荐算法
-
-### 评分公式
-
-```
-final_score = like_score - 1.5 × skip_score
-```
-
-- **like_score**：歌曲与用户喜好向量的匹配程度（0-1）
-- **skip_score**：歌曲与用户排斥向量的匹配程度（0-1）
-- **系数 1.5**：排斥惩罚权重高于喜好奖励
-
-### 多维度匹配权重
-
-#### 喜好匹配（正向）
-
-| 维度 | 权重 | 说明 |
-|------|------|------|
-| 艺术家 | 0.50 | 完全匹配 |
-| 流派 | 0.30 | 完全匹配 |
-| BPM相似度 | 0.10 | 50 BPM 内相似 |
-| 情绪 | 0.20 | 完全匹配 |
-| 语言 | 0.25 | 完全匹配 |
-| 年代 | 0.10 | 完全匹配 |
-| 能量相似度 | 0.05 | 差值越小越高 |
-
-#### 排斥匹配（负向）
-
-| 维度 | 权重 | 说明 |
-|------|------|------|
-| 艺术家 | 0.50 | 完全匹配 |
-| 流派 | 0.30 | 完全匹配 |
-| 情绪 | 0.20 | 完全匹配 |
-| 语言 | 0.25 | 完全匹配 |
-| 年代 | 0.10 | 完全匹配 |
+- 收听比例 < 30% → 判定为 skip
+- 收听比例 ≥ 30% → 判定为正常播放（completed）
 
 ### like/unlike 双向追踪
 
-系统会追踪用户对歌曲的 like 和 unlike 事件，以**最新事件**为准：
+系统以**最新事件**为准：
 
-- 用户先 like 后 unlike → 该歌曲**不算**被 liked
-- 用户先 skip 后 like → 该歌曲**仍可被推荐**（skip 被后来的 like 覆盖）
-- 用户先 like 后 skip → 该歌曲**不会被推荐**（latest = skip）
-
----
-
-## 推荐结果缓存
-
-### 缓存策略
-
-- **缓存位置**：服务端内存（`server/models/cache.js`）
-- **TTL**：5 分钟
-- **粒度**：按用户缓存
-- **上限**：100 个用户（超出时清除最旧缓存）
-
-### 缓存失效触发
-
-| 操作 | 缓存清除范围 |
-|------|-------------|
-| 用户播放/跳过/点赞/取消点赞 | 该用户的缓存 |
-| 用户同步歌曲到后端（sync-song/sync-songs） | **所有用户**的缓存 |
-
-> 注意：同步歌曲会清除所有缓存，因为歌曲特征变化可能影响所有用户的推荐结果
-
-### 强制刷新
-
-客户端可使用 `?refresh=true` 参数强制刷新，绕过缓存：
-
-```
-GET /api/recommend?userId=xxx&limit=30&refresh=true
-```
+| 操作序列 | 最终状态 | 能否推荐 |
+|---------|---------|---------|
+| like → unlike | unliked | ✅ 可以 |
+| like → skip | skipped | ❌ 排除 |
+| skip → like | liked | ✅ 可以（skip 被覆盖）|
+| play → unlike | unliked | ✅ 可以 |
 
 ---
 
-## API 接口
+## 2. 核心公式
 
-### 事件记录
+### 2.1 动态 Skip Penalty（跳过惩罚权重）
 
-| 接口 | 方法 | 说明 |
-|------|------|------|
-| `/api/event/play` | POST | 记录播放事件 |
-| `/api/event/skip` | POST | 记录跳过事件 |
-| `/api/event/like` | POST | 点赞/取消点赞（toggle）|
-| `/api/event/unlike` | POST | 明确取消点赞 |
-| `/api/event/history/:userId` | GET | 获取用户事件历史 |
-| `/api/event/liked/:userId` | GET | 批量查询歌曲点赞状态 |
-
-### 推荐
-
-| 接口 | 方法 | 说明 |
-|------|------|------|
-| `/api/recommend` | GET | 获取个性化推荐（排除 liked/skipped/played 歌曲） |
-| `/api/recommend?refresh=true` | GET | 强制刷新推荐（绕过缓存）|
-| `/api/recommend/similar/:songId` | GET | 获取相似歌曲 |
-| `/api/recommend/debug` | GET | 调试：查看用户偏好向量 |
-
-### 用户画像
-
-| 接口 | 方法 | 说明 |
-|------|------|------|
-| `/api/user/profile/:userId` | GET | 获取用户画像和统计 |
-| `/api/user/sync-songs` | POST | 批量同步歌曲特征（可指定 `recordLikes` 从网易云喜欢列表初始化偏好） |
-
----
-
-## 算法参数配置
-
-在 `server/api/recommend.js` 中可调整：
-
-```javascript
-// 推荐算法权重配置
-const DISLIKE_WEIGHT = 1.5;  // 排斥权重：越大越避免推荐同类歌曲
-
-// 客户端跳过检测配置 (src/mixins/playBehaviorTracker.js)
-const SKIP_RATIO_THRESHOLD = 0.3; // 30% 收听比例阈值
-const skipThreshold = 30;          // 兜底：秒数阈值
-```
-
-在 `server/models/cache.js` 中可调整缓存 TTL：
-
-```javascript
-const CACHE_TTL_MS = 5 * 60 * 1000; // 5 分钟
-```
-
----
-
-## 冷启动初始化
-
-新用户没有播放/跳过/喜欢记录时，推荐引擎无法构建偏好向量，此时可从网易云喜欢的歌曲列表导入初始偏好：
-
-### 流程
+skip 事件的惩罚权重由收听比例决定：
 
 ```
-用户登录 → 获取网易云喜欢歌曲列表 → 分批获取歌曲详情 → sync-songs(recordLikes=true)
-                                                                 ↓
-                                              后端：为每首歌记录 'like' 事件（首次才记录）
-                                              偏好向量立即可用 → 下次打开即有推荐
+skip_weight = -1 × (1 - listen_ratio)
 ```
 
-### recordLikes 参数
+| 收听比例 | skip_weight | 含义 |
+|---------|-------------|------|
+| 0% | **-1.0** | 完全不听，强烈不喜欢 |
+| 30% | **-0.7** | 刚开始就跳过 |
+| 50% | **-0.5** | 听了一半跳过 |
+| 90% | **-0.1** | 快听完了才跳，可能外部原因 |
+| ≥100% | **0.0** | 不算 skip（实际是 completed） |
 
-`POST /api/user/sync-songs` 增加可选参数：
+### 2.2 偏好向量构建
 
-```json
-{
-  "songs": [...],
-  "userId": "user123",
-  "recordLikes": true   // 默认 false
+从用户行为事件集合构建偏好向量 `V`：
+
+```
+V = Σ(event_weight_i × feature_vector_i)
+```
+
+其中 `event_weight` 取决于事件类型：
+
+| 事件类型 | event_weight |
+|---------|-------------|
+| like | **3** |
+| play | **1** |
+| skip | **动态** = -1 × (1 - listen_ratio) |
+
+偏好向量 `V` 的结构：
+
+```
+V = {
+  artistFreq: { [artistId]: 加权频次和 },
+  genreFreq:  { [genre]: 加权频次和 },
+  moodFreq:   { [mood]: 加权频次和 },
+  langFreq:   { [language]: 加权频次和 },
+  decadeFreq: { [decade]: 加权频次和 },
+  avgBpm:     加权平均 BPM,
+  avgDuration: 加权平均时长,
+  avgEnergy:  加权平均能量值,
+  count:      总权重和,
 }
 ```
 
-- `recordLikes=false`（默认）：只同步歌曲特征，不记录事件
-- `recordLikes=true`：同步歌曲特征 + 为每首歌记录 `like` 事件（已有更早事件的跳过）
+### 2.3 like + play 向量合并
 
-### 注意事项
+当同时存在 liked 歌曲和 played 歌曲时，分别构建向量后合并频次：
 
-- 每首歌**只记录一次** `like`（按 `created_at` 排序取最新，跳过已有更早事件的歌曲）
-- 同步完成后**清除所有用户缓存**（因为歌曲特征变化可能影响所有用户）
-- 前端在用户首次打开智能推荐页面时自动触发，**无需手动操作**
+```
+V_likeplay = V_like ⊕ V_play
+```
 
-## 数据库
+其中 `⊕` 表示同维度频次累加：
 
-数据存储在 `server/data/recommender.db` (SQLite/sql.js)
+```
+artistFreq[k] = V_like.artistFreq[k] + V_play.artistFreq[k]
+```
+
+### 2.4 推荐评分公式
+
+候选歌曲 `s` 的最终得分：
+
+```
+final_score(s) = like_score(s) - α × skip_score(s)
+```
+
+其中：
+- `α = 1.5`（排斥惩罚系数，可配置）
+- `like_score ∈ [0, 1]` — 与正向偏好匹配程度
+- `skip_score ∈ [0, 1]` — 与排斥偏好匹配程度
+
+### 2.5 维度匹配得分
+
+单维度匹配得分：
+
+```
+match_score = {
+  artist:  匹配 → 0.50,
+  genre:   匹配 → 0.30,
+  mood:    匹配 → 0.20,
+  lang:    匹配 → 0.25,
+  decade:  匹配 → 0.10,
+  bpm:     1 - |avgBpm - songBpm| / 50,  权重 0.10（仅正向）,
+  energy:  1 - |avgEnergy - songEnergy| × 2,  权重 0.05（仅正向）,
+}
+```
+
+总得分归一化：
+
+```
+dimension_score = Σ(match_i × weight_i) / Σ(weight_i)
+```
+
+---
+
+## 3. 推荐流程
+
+### 执行步骤
+
+```
+1. 获取用户交互数据
+   ├── liked songs  → 构建 like 向量（weight=3）
+   ├── played songs → 构建 play 向量（weight=1）
+   └── skipped songs（含收听比例）→ 构建 skip 向量（动态权重）
+
+2. 合并偏好向量
+   └── likeVector = merge(likeVector, playVector)
+
+3. 构建候选池
+   └── 从数据库获取 5000 首歌曲
+
+4. 排除已交互歌曲
+   └── excludeSet = liked ∪ skipped ∪ played
+
+5. 逐曲评分
+   └── final_score = like_score - 1.5 × skip_score
+
+6. 排序输出
+   └── 按 score 降序，取前 N 首
+
+7. 降级兜底
+   └── 若推荐为空 → 返回最近同步歌曲（排除 liked/skipped/played）
+```
+
+---
+
+## 4. 文件结构
+
+```
+YesPlayMusic-SmartRecommend/
+├── start.sh                      # 一键启动脚本（前后端同时启动）
+├── docs/
+│   └── SMART_RECOMMEND.md        # 本文档（算法规格 + 变更记录）
+│
+├── server/                       # 推荐后端（Express.js）
+│   ├── server.js                 # 服务入口 + 端口自动迁移（3001→3010）
+│   ├── package.json
+│   │
+│   ├── api/
+│   │   ├── events.js             # 事件记录 API（play/skip/like/unlike）
+│   │   ├── recommend.js          # 推荐算法 API（核心逻辑）
+│   │   └── profile.js            # 用户画像 API（topArtists/likedCount）
+│   │
+│   ├── models/
+│   │   ├── db.js                 # SQLite 封装（事件表 + 歌曲特征表）
+│   │   └── cache.js             # 推荐结果缓存（5分钟TTL，上限100用户）
+│   │
+│   ├── __tests__/
+│   │   ├── recommender.test.js   # 推荐算法单元测试（51个用例）
+│   │   └── cache.test.js         # 缓存模块单元测试
+│   │
+│   └── data/
+│       └── recommender.db        # SQLite 数据库文件
+│
+└── src/                          # 前端（Vue.js）
+    ├── mixins/
+    │   └── playBehaviorTracker.js  # 播放行为追踪（skip判定/事件上报）
+    ├── views/
+    │   └── smartRecommend.vue     # 智能推荐页面（含冷启动 + 刷新）
+    └── api/
+        └── recommend.js           # 前端 API 客户端
+```
+
+### 关键模块职责
+
+| 文件 | 职责 |
+|------|------|
+| `recommend.js` | `extractFeatures` `computePreferenceVector` `mergePreferenceVectors` `computePreferenceScore` `getDecade` |
+| `events.js` | `POST /api/event/{play,skip,like,unlike}` — 事件记录 |
+| `db.js` | `getUserLikedSongs` `getUserSkippedSongsWithDetails` `getUserPlayedSongs` `getAllSongs` |
+| `cache.js` | `getCachedRecommendations` `setCachedRecommendations` `invalidateCache` `clearAllCache` |
+| `playBehaviorTracker.js` | skip 判定逻辑（30%阈值）、事件上报 |
+
+---
+
+## 5. API 参考
+
+### 事件记录
+
+| 接口 | 方法 | 参数 | 说明 |
+|------|------|------|------|
+| `/api/event/play` | POST | userId, songId, duration, completed | 记录播放 |
+| `/api/event/skip` | POST | userId, songId, skipTime, songDuration | 记录跳过 |
+| `/api/event/like` | POST | userId, songId | 点赞/取消点赞（toggle）|
+| `/api/event/liked/:userId` | GET | userId, songIds（query）| 批量查询点赞状态 |
+| `/api/event/history/:userId` | GET | userId, type, limit | 事件历史 |
+
+### 推荐
+
+| 接口 | 方法 | 参数 | 说明 |
+|------|------|------|------|
+| `/api/recommend` | GET | userId, limit, excludePlayed, refresh | 获取推荐 |
+| `/api/recommend/similar/:songId` | GET | songId, limit | 相似歌曲 |
+| `/api/recommend/debug` | GET | userId | 调试：查看偏好向量 |
+
+### 用户
+
+| 接口 | 方法 | 参数 | 说明 |
+|------|------|------|------|
+| `/api/user/profile/:userId` | GET | userId | 用户画像 |
+| `/api/user/sync-songs` | POST | songs[], userId, recordLikes | 同步歌曲特征 |
+
+---
+
+## 6. 数据库
 
 ### 表结构
 
 ```sql
 -- 用户事件表
 CREATE TABLE user_events (
-  id TEXT PRIMARY KEY,
-  user_id TEXT NOT NULL,
-  song_id TEXT NOT NULL,
-  event_type TEXT NOT NULL,  -- 'play', 'skip', 'like', 'unlike'
-  duration INTEGER DEFAULT 0,   -- 播放/收听时长（秒）
-  song_duration INTEGER DEFAULT 0, -- 歌曲总时长（秒）
-  completed INTEGER DEFAULT 0,
-  created_at TEXT DEFAULT CURRENT_TIMESTAMP
+  id           TEXT PRIMARY KEY,
+  user_id      TEXT NOT NULL,
+  song_id      TEXT NOT NULL,
+  event_type   TEXT NOT NULL,   -- 'play', 'skip', 'like', 'unlike'
+  duration     INTEGER DEFAULT 0,
+  song_duration INTEGER DEFAULT 0,
+  completed    INTEGER DEFAULT 0,
+  created_at   TEXT DEFAULT CURRENT_TIMESTAMP
 );
 
 -- 歌曲特征表
 CREATE TABLE song_features (
-  song_id TEXT PRIMARY KEY,
-  artist_id TEXT,
-  artist_name TEXT,
-  album_id TEXT,
-  album_name TEXT,
-  duration INTEGER,
-  bpm INTEGER,
-  genre TEXT,
-  publish_time INTEGER,
-  mood TEXT,        -- 情绪
-  language TEXT,    -- 语言
-  decade TEXT,      -- 年代
-  energy REAL,      -- 能量值 0-1
-  danceability REAL, -- 可舞性 0-1
-  tags TEXT,        -- JSON 数组
-  name TEXT,
-  updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+  song_id       TEXT PRIMARY KEY,
+  artist_id     TEXT,
+  artist_name   TEXT,
+  album_id      TEXT,
+  album_name    TEXT,
+  duration      INTEGER,
+  bpm           INTEGER,
+  genre         TEXT,
+  publish_time  INTEGER,
+  mood          TEXT,
+  language      TEXT,
+  decade        TEXT,
+  energy        REAL,
+  danceability  REAL,
+  tags          TEXT,    -- JSON 数组
+  name          TEXT,
+  updated_at    TEXT DEFAULT CURRENT_TIMESTAMP
 );
+```
 
--- 用户画像表
-CREATE TABLE user_profiles (
-  user_id TEXT PRIMARY KEY,
-  data TEXT,  -- JSON
-  updated_at TEXT DEFAULT CURRENT_TIMESTAMP
-);
+### 歌曲特征获取
+
+| 字段 | 来源 | 说明 |
+|------|------|------|
+| artistId/Name | `s.ar[0].id/name` | 首位艺术家 |
+| albumId/Name | `s.al.id/name` | 专辑 |
+| duration | `s.dt` | 时长（秒）|
+| bpm | `s.bpm` | 节拍数（网易云）|
+| genre | `s.tag` | 标签数组转字符串 |
+| publishTime | `s.publishTime` | 发布时（兼容年份数字和时间戳）|
+| decade | `getDecade(publishTime)` | 年代（80s/90s/00s/10s/20s）|
+
+---
+
+## 7. 配置参数
+
+```javascript
+// server/api/recommend.js
+const DISLIKE_WEIGHT = 1.5;        // 排斥惩罚系数（越大越回避同类）
+const CANDIDATE_POOL_SIZE = 5000; // 候选池大小
+
+// src/mixins/playBehaviorTracker.js
+const SKIP_RATIO_THRESHOLD = 0.3; // skip 判定：收听 < 30%
+const COMPLETED_THRESHOLD  = 0.7;  // completed 判定：收听 ≥ 70%
+
+// server/models/cache.js
+const CACHE_TTL_MS    = 5 * 60 * 1000;  // 缓存 TTL：5 分钟
+const CACHE_MAX_USERS = 100;            // 最大缓存用户数
 ```
 
 ---
 
-## 环境变量
+## 8. 变更记录
 
-| 变量 | 默认值 | 说明 |
-|------|--------|------|
-| `PORT` | 3001 | 推荐服务端口 |
-| `VUE_APP_RECOMMENDER_HOST` | http://localhost:3001 | 推荐服务地址（前端）|
-
----
-
-## 部署
-
-```bash
-# 1. 安装依赖
-cd server
-npm install
-
-# 2. 启动服务
-npm start
-
-# 3. 前端开发环境
-cd ..
-yarn serve
-```
-
-### 生产环境
-
-确保设置正确的 `VUE_APP_RECOMMENDER_HOST` 环境变量指向推荐服务地址。
-
----
-
-## 变更记录
-
-### 2026-04-23
-
-#### 功能新增
-- ✅ **冷启动推荐** - 新用户从网易云喜欢列表自动导入初始偏好，打开页面即有推荐
-- ✅ **端口自动迁移** - 后端启动时自动寻找可用端口（3001→3002→...）
-- ✅ **一键启动脚本** - `./start.sh` 同时启动前后端，Ctrl+C 一起关闭
-- ✅ **播放事件纳入偏好** - play 事件（完整收听）作为正向信号合并到喜好向量，权重1
-- ✅ **已播放歌曲排除** - 推荐时排除已播放歌曲（liked + skipped + played 三重排除）
-- ✅ **艺术家名称返回** - `/api/user/profile` 的 `topArtists` 字段新增 `artistName`
+### 2026-04-23（六次审查后）
 
 #### Bug 修复
-- 🔧 **profile 数据未加载** - `smartRecommend.vue` 从未调用 `getUserProfile` API
-- 🔧 **缓存清除范围** - sync-songs/sync-song 时 `invalidateCache` → `clearAllCache()`
-- 🔧 **重复端点** - `POST /api/event/like/:songId` 与 `POST /api/event/like` 冲突
-- 🔧 **降级逻辑失效** - 上次修复引入的回归：`res.json` 用错变量导致降级推荐从不生效
-- 🔧 **likesRecorded 计数错误** - 改为实际新增 like 记录数（排除已有历史事件的歌曲）
-- 🔧 **同步重复请求** - 新增 localStorage 记录 likedCount，数量变化才重新同步
-- 🔧 **候选池上限不足** - 推荐候选池从 1000 扩展到 5000 首
-- 🔧 **刷新不重新同步** - 手动刷新时会重新同步新增的网易云喜欢歌曲
-- 🔧 **推荐为空无降级** - 无推荐结果时返回最近同步歌曲作为降级
-- 🔧 **liked+played 权重混淆** - concat 后统一用 weight=3，修复为分别计算向量后 merge 合并
-- 🔧 **topArtists 艺术家名称失效** - 查找条件 songId===artistId，修复为 artistId===artistId
-- 🔧 **getDecade 兼容年份数字** - 修复 publishTime 为年份数字（如2024）而非时间戳的兼容
+- 🔧 **liked+played 权重混淆** - concat 后统一用 weight=3 → 分别计算向量后 merge 合并
+- 🔧 **topArtists 艺术家名称失效** - 查找条件 songId===artistId → artistId===artistId
+- 🔧 **getDecade 兼容年份数字** - publishTime 为年份数字（如2024）也能正确解析
+- 🔧 **refreshRecommendations 不记录新喜欢** - syncSongs(..., false) → true
+
+#### 功能新增
+- ✅ **播放事件纳入偏好** - play 事件作为正向信号（权重1）合并到喜好向量
+- ✅ **已播放歌曲排除** - liked + skipped + played 三重排除
+- ✅ **mergePreferenceVectors** - liked 和 played 向量正确合并（频次累加）
 
 #### 性能优化
-- 🔧 **批量数据库写入** - `syncSongs` 从逐条 INSERT 改为复用 `saveSong` 批量写入
-- 🔧 **getUserLikedSongs limit** - 默认从 100 提升到 1000
 - 🔧 **getUserSkippedSongs limit** - 默认从 100 提升到 500
-
-#### 新增 API/数据库函数
-- `GET /api/event/liked/:userId` - 批量查询歌曲点赞状态
-- `getUserPlayedSongs(userId, limit)` - 获取用户播放过的歌曲（latest event='play'）
-- `/api/user/sync-songs` 新增 `recordLikes` 参数（布尔值）
-- `mergePreferenceVectors(v1, v2)` - 合并 liked 和 played 偏好向量（频次正确累加）
+- 🔧 **getAllSongs limit** - 候选池从 1000 扩展到 5000 首
 
 #### 单元测试
-- ✅ **Jest 测试框架** - 51 个测试用例覆盖推荐算法和缓存模块
-  - 动态 Skip Penalty 公式验证
-  - 推荐评分公式 `final_score = likeScore - 1.5 × skipScore`
-  - 多维度匹配权重
-  - like/unlike 双向追踪
-  - liked/played 向量合并（mergePreferenceVectors）
-  - 缓存 TTL/失效/上限保护
+- ✅ **53 个测试用例** - 新增 `mergePreferenceVectors` 覆盖 + `getDecade` 年份格式测试
 
-### 2026-04-14
+### 2026-04-14（初次实现）
 
 #### 功能新增
-- ✅ **推荐结果缓存** - 服务端 5 分钟 TTL 缓存，减少重复计算
-- ✅ **同步后自动刷新** - 用户同步歌曲后自动刷新推荐结果
-- ✅ **手动刷新按钮** - 智能推荐页面新增「🔄 刷新推荐」按钮
+- ✅ **推荐结果缓存** - 服务端 5 分钟 TTL
+- ✅ **动态 skip penalty** - 基于收听比例计算惩罚权重
+- ✅ **冷启动推荐** - 从网易云喜欢列表导入初始偏好
+- ✅ **手动刷新按钮** - 智能推荐页面刷新
 
-#### Bug 修复
-- 🔧 **like/unlike toggle** - 修复取消点赞功能不生效的问题
-- 🔧 **动态 skip penalty** - 客户端 skip 检测现在与文档一致（30% 收听比例）
-- 🔧 **skip 反悔逻辑** - 跳过后再点赞的歌曲现在可以正确被推荐
-- 🔧 **数据库查询优化** - 修复 liked/skipped 歌曲上限截断问题（100→1000）
-- 🔧 **代码清理** - 删除重复端点和死代码
-- 🔧 **RECUMMENDER_HOST 拼写错误** → `VUE_APP_RECOMMENDER_HOST`
-
-#### 新增 API/数据库函数
-- `GET /api/event/liked/:userId` - 批量查询歌曲点赞状态
-- `getUserEventsForSong()` - 获取单个歌曲的所有事件
-- `server/models/cache.js` - 共享缓存模块
+#### like/unlike 双向追踪
+- ✅ 最新事件覆盖历史（skip → like 可被推荐）
