@@ -56,7 +56,7 @@
 import { mapState } from 'vuex';
 import NProgress from 'nprogress';
 import TrackList from '@/components/TrackList.vue';
-import { getRecommendations, syncSongs } from '@/api/recommend';
+import { getRecommendations, getUserProfile, syncSongs } from '@/api/recommend';
 import { getTrackDetail } from '@/api/playlist';
 
 export default {
@@ -137,46 +137,50 @@ export default {
         }
       }
 
-      // 如果同步了歌曲，强制刷新推荐（绕过缓存）
-      getRecommendations(this.userId, 30, true, needsRefresh)
-        .then(result => {
-          // 解析推荐结果（API 返回 { recommendations, meta }，无 code 字段）
-          if (result && result.recommendations !== undefined) {
-            this.recommendations = result.recommendations || [];
-            this.hasEnoughData = this.recommendations.length > 0;
-          } else {
-            // API 返回错误或为空，尝试显示已有喜欢歌曲数
-            this.hasEnoughData = likedCount > 0;
-          }
-        })
-        .catch(err => {
-          console.error('Failed to load recommendations:', err);
-          this.hasEnoughData = likedCount > 0;
-        })
-        .finally(() => {
-          this.show = true;
-          this.loading = false;
-          NProgress.done();
-        });
+      // 并行加载推荐结果和用户画像
+      const [recResult, profileResult] = await Promise.all([
+        getRecommendations(this.userId, 30, true, needsRefresh),
+        getUserProfile(this.userId),
+      ]);
+
+      // 解析推荐结果
+      if (recResult && recResult.recommendations !== undefined) {
+        this.recommendations = recResult.recommendations || [];
+        this.hasEnoughData = this.recommendations.length > 0;
+      } else {
+        this.hasEnoughData = likedCount > 0;
+      }
+
+      // 解析用户画像（播放/点赞/跳过统计）
+      if (profileResult && profileResult.userId) {
+        this.profile = profileResult;
+      }
+
+      this.show = true;
+      this.loading = false;
+      NProgress.done();
     },
-    refreshRecommendations() {
+    async refreshRecommendations() {
       // Force refresh bypassing cache
       this.loading = true;
       NProgress.start();
-      getRecommendations(this.userId, 30, true, true) // excludePlayed=true, refresh=true
-        .then(result => {
-          if (result && result.recommendations !== undefined) {
-            this.recommendations = result.recommendations || [];
-            this.hasEnoughData = this.recommendations.length > 0;
-          }
-        })
-        .catch(err => {
-          console.error('Failed to refresh recommendations:', err);
-        })
-        .finally(() => {
-          this.loading = false;
-          NProgress.done();
-        });
+
+      const [recResult, profileResult] = await Promise.all([
+        getRecommendations(this.userId, 30, true, true),
+        getUserProfile(this.userId),
+      ]);
+
+      if (recResult && recResult.recommendations !== undefined) {
+        this.recommendations = recResult.recommendations || [];
+        this.hasEnoughData = this.recommendations.length > 0;
+      }
+
+      if (profileResult && profileResult.userId) {
+        this.profile = profileResult;
+      }
+
+      this.loading = false;
+      NProgress.done();
     },
   },
 };
