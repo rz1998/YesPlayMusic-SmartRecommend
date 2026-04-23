@@ -59,6 +59,7 @@ function computePreferenceVector(songs, eventType) {
     totalBpm: 0,
     totalDuration: 0,
     totalEnergy: 0,
+    totalDanceability: 0,
     count: 0,
   };
 
@@ -100,6 +101,9 @@ function computePreferenceVector(songs, eventType) {
     if (song.energy !== undefined) {
       vector.totalEnergy += song.energy * Math.abs(weight);
     }
+    if (song.danceability !== undefined) {
+      vector.totalDanceability += song.danceability * Math.abs(weight);
+    }
     vector.count += Math.abs(weight);
   });
 
@@ -107,6 +111,7 @@ function computePreferenceVector(songs, eventType) {
     vector.avgBpm = vector.totalBpm / vector.count;
     vector.avgDuration = vector.totalDuration / vector.count;
     vector.avgEnergy = vector.totalEnergy / vector.count;
+    vector.avgDanceability = vector.totalDanceability / vector.count;
   }
 
   return vector;
@@ -155,6 +160,13 @@ function computePreferenceScore(vec, songVec, isSkip = false) {
     const energyDiff = Math.abs(vec.avgEnergy - songVec.energy);
     const energySim = Math.max(0, 1 - energyDiff * 2);
     score += energySim * 0.05;
+    weights += 0.05;
+  }
+
+  if (!isSkip && vec.avgDanceability !== undefined && songVec.danceability !== undefined && vec.count > 0) {
+    const danceDiff = Math.abs(vec.avgDanceability - songVec.danceability);
+    const danceSim = Math.max(0, 1 - danceDiff * 2);
+    score += danceSim * 0.05;
     weights += 0.05;
   }
 
