@@ -112,6 +112,7 @@ V = {
   avgBpm:     加权平均 BPM,
   avgDuration: 加权平均时长,
   avgEnergy:  加权平均能量值,
+  avgDanceability: 加权平均可舞性,
   count:      总权重和,
 }
 ```
@@ -178,7 +179,8 @@ dimension_score = Σ(match_i × weight_i) / Σ(weight_i)
    └── skipped songs（含收听比例）→ 构建 skip 向量（动态权重）
 
 2. 合并偏好向量
-   └── likeVector = merge(likeVector, playVector)
+   └── likeVector = merge(merge(likedVector, completedPlayVector), partialPlayVector)
+   ※ completed play（≥70%）和 partial play（30%-70%）权重相同但互斥合并
 
 3. 构建候选池
    └── 从数据库获取 5000 首歌曲
@@ -241,7 +243,7 @@ YesPlayMusic-SmartRecommend/
 |------|------|
 | `recommend.js` | `extractFeatures` `computePreferenceVector` `mergePreferenceVectors` `computePreferenceScore` `getDecade` |
 | `events.js` | `POST /api/event/{play,skip,like,unlike}` — 事件记录 |
-| `db.js` | `getUserLikedSongs` `getUserSkippedSongsWithDetails` `getUserPlayedSongs` `getAllSongs` |
+| `db.js` | `getUserLikedSongs` `getUserSkippedSongsWithDetails` `getUserPlayedSongs` `getPartialPlayedSongs` `getAllSongs` |
 | `cache.js` | `getCachedRecommendations` `setCachedRecommendations` `invalidateCache` `clearAllCache` |
 | `playBehaviorTracker.js` | skip 判定逻辑（30%阈值）、事件上报 |
 
