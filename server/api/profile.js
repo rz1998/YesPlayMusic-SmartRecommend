@@ -105,8 +105,8 @@ router.post('/sync-songs', (req, res) => {
     tags: s.tags,
   })));
   
-  // Clear this user's cache since song features changed
-  cache.invalidateCache(userId);
+  // Clear ALL users' cache since song features may affect all recommendations
+  cache.clearAllCache();
   res.json({ success: true, count: limitedSongs.length, truncated: songs.length > MAX_BATCH_SIZE });
 });
 

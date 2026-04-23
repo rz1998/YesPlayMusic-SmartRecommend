@@ -140,16 +140,12 @@ export default {
       // 如果同步了歌曲，强制刷新推荐（绕过缓存）
       getRecommendations(this.userId, 30, true, needsRefresh)
         .then(result => {
-          if (result.code === 200 || result.code === 0) {
-            // 解析推荐结果
+          // 解析推荐结果（API 返回 { recommendations, meta }，无 code 字段）
+          if (result && result.recommendations !== undefined) {
             this.recommendations = result.recommendations || [];
-            this.profile = result.profile || null;
-            // 有推荐数据或已有播放记录即为有足够数据
-            this.hasEnoughData =
-              this.recommendations.length > 0 ||
-              this.profile?.statistics?.totalPlays > 0;
+            this.hasEnoughData = this.recommendations.length > 0;
           } else {
-            // API 返回错误，尝试显示已有喜欢歌曲数
+            // API 返回错误或为空，尝试显示已有喜欢歌曲数
             this.hasEnoughData = likedCount > 0;
           }
         })
@@ -169,7 +165,7 @@ export default {
       NProgress.start();
       getRecommendations(this.userId, 30, true, true) // excludePlayed=true, refresh=true
         .then(result => {
-          if (result.code === 200 || result.code === 0) {
+          if (result && result.recommendations !== undefined) {
             this.recommendations = result.recommendations || [];
             this.hasEnoughData = this.recommendations.length > 0;
           }

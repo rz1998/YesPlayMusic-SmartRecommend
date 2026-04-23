@@ -56,30 +56,7 @@ router.post('/like', (req, res) => {
   res.json({ success: true, action });
 });
 
-// Record like event (explicit)
-router.post('/like/:songId', (req, res) => {
-  const { userId } = req.body;
-  const { songId } = req.params;
-  
-  if (!userId || !songId) {
-    return res.status(400).json({ error: 'userId and songId are required' });
-  }
 
-  const events = db.getUserEventsForSong(userId, String(songId));
-  const latestEvent = events.length > 0 ? events[0].eventType : null;
-  
-  let action;
-  if (latestEvent === 'like') {
-    db.addEvent(userId, songId, 'unlike', 0, false);
-    action = 'unliked';
-  } else {
-    db.addEvent(userId, songId, 'like', 0, false);
-    action = 'liked';
-  }
-  
-  cache.invalidateCache(userId);
-  res.json({ success: true, action });
-});
 
 // Record unlike event (explicit)
 router.post('/unlike', (req, res) => {
