@@ -154,7 +154,7 @@ router.get('/', (req, res) => {
     
     // Return limited results
     res.json({
-      recommendations: scoredCandidates.slice(0, parseInt(limit)),
+      recommendations: finalRecommendations.slice(0, parseInt(limit)),
       meta: result.meta,
     });
     

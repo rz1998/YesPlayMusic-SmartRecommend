@@ -69,7 +69,7 @@ router.post('/sync-song', (req, res) => {
   });
   
   // Clear this user's cache since song features changed
-  cache.invalidateCache(userId);
+  cache.clearAllCache();
   res.json({ success: true });
 });
 
@@ -114,6 +114,7 @@ router.post('/sync-songs', (req, res) => {
   })));
 
   // ── 冷启动：用户网易云喜欢的歌曲 → 记录为 'like' 事件 ──
+  let actualLikesRecorded = 0;
   if (recordLikes && userId) {
     for (const song of limitedSongs) {
       const songId = String(song.id || song.songId);
@@ -121,8 +122,8 @@ router.post('/sync-songs', (req, res) => {
       // 检查是否已有该歌曲的更早事件（有则跳过，避免重复 like 记录）
       const existingEvents = db.getUserEventsForSong(userId, songId);
       if (existingEvents.length === 0) {
-        // 无历史事件 → 记录为 like，播放时长设为完整（用户表示喜欢）
         db.addEvent(userId, songId, 'like', duration, true, duration);
+        actualLikesRecorded++;
       }
     }
   }
@@ -133,7 +134,7 @@ router.post('/sync-songs', (req, res) => {
     success: true,
     count: limitedSongs.length,
     truncated: songs.length > MAX_BATCH_SIZE,
-    likesRecorded: recordLikes ? limitedSongs.length : 0,
+    likesRecorded: actualLikesRecorded,
   });
 });
 
