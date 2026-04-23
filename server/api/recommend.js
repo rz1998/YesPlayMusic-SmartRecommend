@@ -204,7 +204,14 @@ function extractFeatures(song) {
 
 function getDecade(publishTime) {
   if (!publishTime) return 'unknown';
-  const year = new Date(publishTime * 1000).getFullYear();
+  // 兼容两种格式：年份数字 或 秒级时间戳
+  // 年份 < 10000（如 2024），时间戳秒 > 10000（如 486864000 = 1985年）
+  let year;
+  if (publishTime < 10000) {
+    year = publishTime;  // 已经是年份数字
+  } else {
+    year = new Date(publishTime * 1000).getFullYear();
+  }
   if (year < 1990) return '80s';
   if (year < 2000) return '90s';
   if (year < 2010) return '00s';
