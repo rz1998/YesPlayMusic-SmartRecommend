@@ -58,17 +58,25 @@ router.get('/', (req, res) => {
     });
     const skippedSongIds = skippedSongDetails.map(d => d.songId);
     
-    // 3. Get played songs (latest event='play', for positive preference signal)
+    // 3. Get played songs (completed=1, 完整播放，计入偏好+排除)
     const playedSongIds = db.getUserPlayedSongs(userId, 500);
     const playedSongs = db.getSongs(playedSongIds);
     
+    // 3b. Get partial plays (completed=0, 30%-70%收听，计入偏好但不排除)
+    const partialPlayedSongIds = db.getPartialPlayedSongs(userId, 500);
+    const partialPlayedSongs = db.getSongs(partialPlayedSongIds);
+    
     // 4. Calculate user preference vector
-    // Like 和 Play 是不同权重的事件，需分别计算后再合并频次
-    // Like 权重=3，Play 权重=1
+    // 权重: like=3, play(完整/部分)=1
+    // 部分播放（30%-70%）计入正向偏好，但不从候选池排除（用户没听完还想听）
     const likedVector = likedSongs.length > 0 ? computePreferenceVector(likedSongs, 'like') : null;
     const playedVector = playedSongs.length > 0 ? computePreferenceVector(playedSongs, 'play') : null;
-    // 合并两个向量的频次
-    const likeVector = mergePreferenceVectors(likedVector, playedVector);
+    const partialPlayVector = partialPlayedSongs.length > 0 ? computePreferenceVector(partialPlayedSongs, 'play') : null;
+    // 合并: like + 完整play + 部分play
+    const likeVector = mergePreferenceVectors(
+      mergePreferenceVectors(likedVector, playedVector),
+      partialPlayVector
+    );
     const skippedSongs = db.getSongs(skippedSongIds);
     // Build events array with duration info for dynamic skip weight
     const skipEvents = skippedSongDetails.map(d => {

@@ -224,6 +224,33 @@ function getUserPlayedSongs(userId, limit = 500) {
   return playedSongs;
 }
 
+// Get user's partial plays (latest event is 'play' but completed=0, i.e., 30%-70% listened)
+// These contribute +1 to preference vector but are NOT excluded from recommendations
+function getPartialPlayedSongs(userId, limit = 500) {
+  const results = query(
+    `SELECT song_id, event_type, completed FROM user_events
+     WHERE user_id = ? AND event_type IN ('play', 'skip', 'like', 'unlike')
+     ORDER BY created_at DESC`,
+    [userId]
+  );
+  
+  // Build a map: song_id -> latest event info (first occurrence = latest due to DESC order)
+  const latestEventMap = {};
+  for (const row of results) {
+    if (latestEventMap[row.song_id] === undefined) {
+      latestEventMap[row.song_id] = { eventType: row.event_type, completed: row.completed };
+    }
+  }
+  
+  // Only return songs where latest event is 'play' AND completed=0 (partially listened, 30%-70%)
+  const partialPlayedSongs = Object.entries(latestEventMap)
+    .filter(([_, info]) => info.eventType === 'play' && info.completed === 0)
+    .map(([songId, _]) => songId)
+    .slice(0, limit);
+  
+  return partialPlayedSongs;
+}
+
 // Get user's skipped songs (only songs where the latest event is 'skip', not 'like' or 'unlike')
 // Songs that were skipped but later liked are NOT excluded from recommendations
 function getUserSkippedSongs(userId, limit = 500) {
