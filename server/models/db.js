@@ -170,7 +170,7 @@ function getUserEventsForSong(userId, songId) {
 }
 
 // Get user's liked songs (only songs where the latest event is 'like', not 'unlike')
-function getUserLikedSongs(userId, limit = 100) {
+function getUserLikedSongs(userId, limit = 1000) {
   // Get the latest event for each song by this user, only considering like/unlike events
   const results = query(
     `SELECT song_id, event_type, created_at FROM user_events 
@@ -198,7 +198,7 @@ function getUserLikedSongs(userId, limit = 100) {
 
 // Get user's skipped songs (only songs where the latest event is 'skip', not 'like' or 'unlike')
 // Songs that were skipped but later liked are NOT excluded from recommendations
-function getUserSkippedSongs(userId, limit = 100) {
+function getUserSkippedSongs(userId, limit = 500) {
   const results = query(
     `SELECT song_id, event_type, created_at FROM user_events 
      WHERE user_id = ? AND event_type IN ('skip', 'play', 'like', 'unlike')
@@ -224,7 +224,7 @@ function getUserSkippedSongs(userId, limit = 100) {
 }
 
 // Get skipped songs with listen duration details (only songs where skip is the latest event)
-function getUserSkippedSongsWithDetails(userId, limit = 100) {
+function getUserSkippedSongsWithDetails(userId, limit = 500) {
   const results = query(
     `SELECT song_id, event_type, duration as listen_duration, song_duration, created_at
      FROM user_events 

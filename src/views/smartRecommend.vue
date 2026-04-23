@@ -39,10 +39,11 @@
       <p>正在分析你的喜好...</p>
     </div>
 
-    <div v-else-if="!hasEnoughData" class="empty initializing">
+    <div v-else-if="!hasEnoughData && likedSongsCount > 0" class="empty initializing">
       <div class="init-icon">🎵</div>
-      <p>正在从你喜欢的歌曲中学习...</p>
-      <p class="hint">这将帮助我了解你的音乐偏好</p>
+      <p v-if="loading">正在从你喜欢的歌曲中学习...</p>
+      <p v-else>已同步 {{ likedSongsCount }} 首喜欢歌曲，正在生成推荐...</p>
+      <p class="hint">试试点击刷新推荐</p>
     </div>
 
     <div v-else class="empty">
@@ -96,8 +97,10 @@ export default {
       const likedCount = this.likedSongsCount;
       let needsRefresh = false;
 
-      // 如果有喜欢的歌曲，先同步到后端
-      if (likedCount > 0) {
+      // 如果有喜欢的歌曲且数量变化了，才重新同步（避免每次页面加载都重复请求）
+      const STORAGE_KEY = 'ypm_liked_sync_count_' + this.userId;
+      const lastCount = parseInt(localStorage.getItem(STORAGE_KEY) || '0', 10);
+      if (likedCount > 0 && likedCount !== lastCount) {
         try {
           // 获取喜欢的歌曲ID列表（最多500首）
           const likedSongIds = this.liked.songs.slice(0, 500);
@@ -120,9 +123,17 @@ export default {
                   albumId: s.al?.id,
                   albumName: s.al?.name,
                   duration: s.dt,
+                  // 扩展维度（网易云可能提供部分）
+                  bpm: s.bpm || undefined,
+                  genre: s.tag?.join(',') || undefined,
+                  publishTime: s.publishTime || undefined,
+                  mood: s.mood || undefined,
+                  language: s.language || undefined,
+                  decade: s.decade || undefined,
+                  energy: s.energy || undefined,
+                  danceability: s.danceability || undefined,
                 }));
                 const result = await syncSongs(songsToSync, this.userId, true);
-                // 标记需要刷新推荐（同步成功）
                 if (result.success) {
                   needsRefresh = true;
                 }
@@ -131,10 +142,15 @@ export default {
               console.warn('Failed to sync batch:', i, e);
             }
           }
+          // 记录已同步的数量，避免下次重复同步
+          localStorage.setItem(STORAGE_KEY, String(likedCount));
           console.log('✅ Liked songs synced to backend');
         } catch (e) {
           console.warn('Failed to sync liked songs:', e);
         }
+      } else if (likedCount === lastCount && lastCount > 0) {
+        // 数量没变且已有同步记录，跳过同步，直接请求推荐
+        needsRefresh = false;
       }
 
       // 并行加载推荐结果和用户画像
@@ -165,8 +181,36 @@ export default {
       this.loading = true;
       NProgress.start();
 
+      // 刷新前重新同步（用户可能新增了喜欢的歌曲）
+      let needsRefresh = true;
+      if (this.likedSongsCount > 0) {
+        try {
+          const likedSongIds = this.liked.songs.slice(0, 500);
+          const batchSize = 100;
+          for (let i = 0; i < likedSongIds.length; i += batchSize) {
+            const batchIds = likedSongIds.slice(i, i + batchSize);
+            const idsStr = batchIds.join(',');
+            const detail = await getTrackDetail(idsStr);
+            if (detail.songs && detail.songs.length > 0) {
+              const songsToSync = detail.songs.map(s => ({
+                id: s.id, name: s.name,
+                artistId: s.ar?.[0]?.id,
+                artistName: s.ar?.map(a => a.name).join(','),
+                albumId: s.al?.id, albumName: s.al?.name, duration: s.dt,
+                bpm: s.bpm || undefined,
+                genre: s.tag?.join(',') || undefined,
+                publishTime: s.publishTime || undefined,
+              }));
+              await syncSongs(songsToSync, this.userId, false); // recordLikes=false（已有记录）
+            }
+          }
+        } catch (e) {
+          console.warn('Refresh sync failed:', e);
+        }
+      }
+
       const [recResult, profileResult] = await Promise.all([
-        getRecommendations(this.userId, 30, true, true),
+        getRecommendations(this.userId, 30, true, needsRefresh),
         getUserProfile(this.userId),
       ]);
 

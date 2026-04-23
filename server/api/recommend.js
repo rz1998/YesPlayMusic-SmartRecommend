@@ -6,7 +6,7 @@ const cache = require('../models/cache');
 // Debug endpoint - shows user preference vectors for debugging
 router.get('/debug', (req, res) => {
   const { userId } = req.query;
-  const likedSongIds = db.getUserLikedSongs(userId, 100);
+  const likedSongIds = db.getUserLikedSongs(userId, 1000);
   const likedSongs = db.getSongs(likedSongIds);
   const skippedSongIds = db.getUserSkippedSongs(userId, 100);
   const skippedSongs = db.getSongs(skippedSongIds);
@@ -74,11 +74,11 @@ router.get('/', (req, res) => {
     const skipVector = computePreferenceVector(skipEvents, 'skip');
     
     // 4. Get candidate songs
-    const candidates = db.getAllSongs(1000);
+    const candidates = db.getAllSongs(5000);
     
     // Filter out played songs if needed
     const filteredCandidates = excludePlayed === 'true' || excludePlayed === true
-      ? candidates.filter(s => !likedSongIds.includes(s.songId))
+      ? candidates.filter(s => !likedSongIds.includes(String(s.songId)))
       : candidates;
     
     // 5. Score candidates
@@ -110,8 +110,35 @@ router.get('/', (req, res) => {
       })
       .sort((a, b) => b.score - a.score);
     
+    // 如果候选池为空或推荐结果为空，但用户有喜欢歌曲 → 返回最近同步的歌曲作为降级
+    let finalRecommendations = scoredCandidates.slice(0, parseInt(limit));
+    if (finalRecommendations.length === 0 && likedSongIds.length > 0) {
+      // 降级：用最近同步的歌曲（排除已喜欢/已跳过）
+      const fallbackCandidates = db.getAllSongs(50)
+        .filter(s =>
+          !likedSongIds.includes(String(s.songId)) &&
+          !skippedSongIds.includes(String(s.songId))
+        );
+      finalRecommendations = fallbackCandidates.map(song => ({
+        id: song.songId,
+        name: song.name || song.songName,
+        artist: song.artistName,
+        album: song.albumName,
+        duration: song.duration,
+        genre: song.genre,
+        mood: song.mood,
+        language: song.language,
+        energy: song.energy,
+        score: 0,
+        likeScore: 0,
+        skipScore: 0,
+        _fallback: true,
+      }));
+      console.log(`⚠️ No candidates from DB, returning ${finalRecommendations.length} fallback songs`);
+    }
+
     const result = {
-      recommendations: scoredCandidates,
+      recommendations: finalRecommendations,
       meta: {
         userId,
         totalCandidates: candidates.length,
