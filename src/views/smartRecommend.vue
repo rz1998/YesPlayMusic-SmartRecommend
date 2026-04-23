@@ -201,7 +201,7 @@ export default {
                 genre: s.tag?.join(',') || undefined,
                 publishTime: s.publishTime || undefined,
               }));
-              await syncSongs(songsToSync, this.userId, false); // recordLikes=false（已有记录）
+              await syncSongs(songsToSync, this.userId, true); // recordLikes=true（新歌曲记录like事件）
             }
           }
         } catch (e) {
