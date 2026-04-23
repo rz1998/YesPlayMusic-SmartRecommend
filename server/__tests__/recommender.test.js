@@ -515,6 +515,48 @@ describe('推荐算法 - 规格对照测试', () => {
     });
   });
 
+  // ── 8b. mergePreferenceVectors ────────────────────────────────────
+
+  describe('8b. mergePreferenceVectors（liked+played 向量合并）', () => {
+    test('liked + played 频次正确累加', () => {
+      // 模拟：liked(A)=3, played(A)=1 → 合并后 A=4，B 仅在 played
+      function mergeFreqMap(m1, m2) {
+        const result = { ...m1 };
+        for (const [k, v] of Object.entries(m2)) result[k] = (result[k] || 0) + v;
+        return result;
+      }
+      const v1 = { artistFreq: { A: 3 }, genreFreq: {}, moodFreq: {}, langFreq: {}, decadeFreq: {}, totalBpm: 360, totalDuration: 0, totalEnergy: 0, count: 3 };
+      const v2 = { artistFreq: { A: 1, B: 1 }, genreFreq: {}, moodFreq: {}, langFreq: {}, decadeFreq: {}, totalBpm: 80, totalDuration: 0, totalEnergy: 0, count: 1 };
+      const merged = {
+        artistFreq: mergeFreqMap(v1.artistFreq, v2.artistFreq),
+        genreFreq: mergeFreqMap(v1.genreFreq, v2.genreFreq),
+        moodFreq: mergeFreqMap(v1.moodFreq, v2.moodFreq),
+        langFreq: mergeFreqMap(v1.langFreq, v2.langFreq),
+        decadeFreq: mergeFreqMap(v1.decadeFreq, v2.decadeFreq),
+        totalBpm: v1.totalBpm + v2.totalBpm,
+        totalDuration: v1.totalDuration + v2.totalDuration,
+        totalEnergy: v1.totalEnergy + v2.totalEnergy,
+        count: v1.count + v2.count,
+      };
+      expect(merged.artistFreq.A).toBe(4);  // 3+1
+      expect(merged.artistFreq.B).toBe(1);   // 仅 played 有
+      expect(merged.count).toBe(4);
+      expect(merged.totalBpm).toBe(440);
+    });
+
+    test('null liked 向量 → 直接返回 played 向量', () => {
+      const v2 = { artistFreq: { A: 1 }, genreFreq: {}, moodFreq: {}, langFreq: {}, decadeFreq: {}, totalBpm: 80, totalDuration: 0, totalEnergy: 0, count: 1 };
+      const result = v2; // !v1 时返回 v2
+      expect(result.artistFreq.A).toBe(1);
+    });
+
+    test('null played 向量 → 直接返回 liked 向量', () => {
+      const v1 = { artistFreq: { A: 3 }, genreFreq: {}, moodFreq: {}, langFreq: {}, decadeFreq: {}, totalBpm: 360, totalDuration: 0, totalEnergy: 0, count: 3 };
+      const result = v1; // !v2 时返回 v1
+      expect(result.artistFreq.A).toBe(3);
+    });
+  });
+
   // ── 9. 零数据边界 ────────────────────────────────────────────────────
 
   describe('9. 边界情况', () => {

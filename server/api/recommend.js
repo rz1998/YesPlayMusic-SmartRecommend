@@ -62,9 +62,13 @@ router.get('/', (req, res) => {
     const playedSongIds = db.getUserPlayedSongs(userId, 500);
     const playedSongs = db.getSongs(playedSongIds);
     
-    // 4. Calculate user preference vector (likes + plays → positive preference)
-    // Play 事件权重为 1（完整播放表示正向偏好，虽弱于 like=3）
-    const likeVector = computePreferenceVector(likedSongs.concat(playedSongs), 'like');
+    // 4. Calculate user preference vector
+    // Like 和 Play 是不同权重的事件，需分别计算后再合并频次
+    // Like 权重=3，Play 权重=1
+    const likedVector = likedSongs.length > 0 ? computePreferenceVector(likedSongs, 'like') : null;
+    const playedVector = playedSongs.length > 0 ? computePreferenceVector(playedSongs, 'play') : null;
+    // 合并两个向量的频次
+    const likeVector = mergePreferenceVectors(likedVector, playedVector);
     const skippedSongs = db.getSongs(skippedSongIds);
     // Build events array with duration info for dynamic skip weight
     const skipEvents = skippedSongDetails.map(d => {
@@ -94,9 +98,8 @@ router.get('/', (req, res) => {
       ? candidates.filter(s => !excludeSet.has(String(s.songId)))
       : candidates;
     
-    // 5. Score candidates
+    // 5. Score candidates（filteredCandidates 已通过 excludeSet 排除了 skipped）
     const scoredCandidates = filteredCandidates
-      .filter(song => !skippedSongIds.includes(song.songId))
       .map(song => {
         const songVec = extractFeatures(song);
         const likeScore = computePreferenceScore(likeVector, songVec, false);
@@ -279,6 +282,38 @@ function computePreferenceVector(songs, eventType) {
   }
   
   return vector;
+}
+
+// Merge two preference vectors by adding their frequency maps
+// v1: like vector (weight=3), v2: play vector (weight=1)
+function mergePreferenceVectors(v1, v2) {
+  if (!v1 && !v2) return null;
+  if (!v1) return v2;
+  if (!v2) return v1;
+  
+  // 辅助：合并频次 map（累加值）
+  function mergeFreqMap(m1, m2) {
+    const result = { ...m1 };
+    for (const [k, v] of Object.entries(m2)) {
+      result[k] = (result[k] || 0) + v;
+    }
+    return result;
+  }
+  
+  return {
+    artistFreq: mergeFreqMap(v1.artistFreq, v2.artistFreq),
+    genreFreq: mergeFreqMap(v1.genreFreq, v2.genreFreq),
+    moodFreq: mergeFreqMap(v1.moodFreq, v2.moodFreq),
+    langFreq: mergeFreqMap(v1.langFreq, v2.langFreq),
+    decadeFreq: mergeFreqMap(v1.decadeFreq, v2.decadeFreq),
+    totalBpm: v1.totalBpm + v2.totalBpm,
+    totalDuration: v1.totalDuration + v2.totalDuration,
+    totalEnergy: v1.totalEnergy + v2.totalEnergy,
+    count: v1.count + v2.count,
+    avgBpm: 0,  // 临时占位，调用方不依赖此字段
+    avgDuration: 0,
+    avgEnergy: 0,
+  };
 }
 
 // Helper: Compute preference match score
