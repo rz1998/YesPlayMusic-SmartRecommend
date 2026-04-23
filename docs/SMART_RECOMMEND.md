@@ -163,7 +163,7 @@ GET /api/recommend?userId=xxx&limit=30&refresh=true
 | 接口 | 方法 | 说明 |
 |------|------|------|
 | `/api/user/profile/:userId` | GET | 获取用户画像和统计 |
-| `/api/user/sync-songs` | POST | 批量同步歌曲特征 |
+| `/api/user/sync-songs` | POST | 批量同步歌曲特征（可指定 `recordLikes` 从网易云喜欢列表初始化偏好） |
 
 ---
 
@@ -187,6 +187,40 @@ const CACHE_TTL_MS = 5 * 60 * 1000; // 5 分钟
 ```
 
 ---
+
+## 冷启动初始化
+
+新用户没有播放/跳过/喜欢记录时，推荐引擎无法构建偏好向量，此时可从网易云喜欢的歌曲列表导入初始偏好：
+
+### 流程
+
+```
+用户登录 → 获取网易云喜欢歌曲列表 → 分批获取歌曲详情 → sync-songs(recordLikes=true)
+                                                                 ↓
+                                              后端：为每首歌记录 'like' 事件（首次才记录）
+                                              偏好向量立即可用 → 下次打开即有推荐
+```
+
+### recordLikes 参数
+
+`POST /api/user/sync-songs` 增加可选参数：
+
+```json
+{
+  "songs": [...],
+  "userId": "user123",
+  "recordLikes": true   // 默认 false
+}
+```
+
+- `recordLikes=false`（默认）：只同步歌曲特征，不记录事件
+- `recordLikes=true`：同步歌曲特征 + 为每首歌记录 `like` 事件（已有更早事件的跳过）
+
+### 注意事项
+
+- 每首歌**只记录一次** `like`（按 `created_at` 排序取最新，跳过已有更早事件的歌曲）
+- 同步完成后**清除所有用户缓存**（因为歌曲特征变化可能影响所有用户）
+- 前端在用户首次打开智能推荐页面时自动触发，**无需手动操作**
 
 ## 数据库
 
@@ -269,6 +303,18 @@ yarn serve
 ---
 
 ## 变更记录
+
+### 2026-04-23
+
+#### 功能新增
+- ✅ **冷启动推荐** - 新用户从网易云喜欢列表自动导入初始偏好，打开页面即有推荐
+- ✅ **端口自动迁移** - 后端启动时自动寻找可用端口（3001→3002→...）
+- ✅ **一键启动脚本** - `./start.sh` 同时启动前后端，Ctrl+C 一起关闭
+
+#### Bug 修复
+- 🔧 **profile 数据未加载** - `smartRecommend.vue` 从未调用 `getUserProfile` API
+- 🔧 **缓存清除范围** - sync-songs 时 `invalidateCache(userId)` → `clearAllCache()`
+- 🔧 **重复端点** - `POST /api/event/like/:songId` 与 `POST /api/event/like` 冲突
 
 ### 2026-04-14
 
