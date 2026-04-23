@@ -1,13 +1,13 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const net = require('net');
 
 const eventsApi = require('./api/events');
 const recommendApi = require('./api/recommend');
 const profileApi = require('./api/profile');
 
 const app = express();
-const PORT = process.env.PORT || 3001;
 
 // Middleware
 app.use(cors());
@@ -31,14 +31,45 @@ if (process.env.NODE_ENV === 'production') {
   });
 }
 
+// ── Port auto-migration ──────────────────────────────────────────────
+function isPortAvailable(port) {
+  return new Promise((resolve) => {
+    const server = net.createServer();
+    server.once('error', () => resolve(false));
+    server.once('listen', () => {
+      server.close();
+      resolve(true);
+    });
+    server.listen(port, '0.0.0.0');
+  });
+}
+
+async function findAvailablePort(startPort, maxTries = 20) {
+  for (let i = 0; i < maxTries; i++) {
+    const port = startPort + i;
+    if (await isPortAvailable(port)) {
+      return port;
+    }
+    console.log(`⚠ Port ${port} is in use, trying ${port + 1}...`);
+  }
+  throw new Error(`No available port found in range ${startPort}-${startPort + maxTries - 1}`);
+}
+
 // Initialize database then start server
 async function start() {
   try {
     const db = require('./models/db');
     await db.initialize();
-    
-    app.listen(PORT, () => {
+
+    const START_PORT = parseInt(process.env.PORT || '3001', 10);
+    const PORT = await findAvailablePort(START_PORT);
+
+    app.listen(PORT, '0.0.0.0', () => {
       console.log(`🎵 YesPlayMusic Recommendation Server running on port ${PORT}`);
+      // Signal parent process (start.sh) that we're ready
+      if (process.send) {
+        process.send({ type: 'ready', port: PORT });
+      }
     });
   } catch (error) {
     console.error('Failed to start server:', error);

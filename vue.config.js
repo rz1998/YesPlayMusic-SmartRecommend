@@ -12,7 +12,7 @@ module.exports = {
     port: process.env.DEV_SERVER_PORT || 8080,
     proxy: {
       '^/api': {
-        target: 'http://localhost:3000',
+        target: process.env.API_PROXY_TARGET || 'http://localhost:3001',
         changeOrigin: true,
         pathRewrite: {
           '^/api': '/',
