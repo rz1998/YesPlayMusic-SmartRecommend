@@ -5,8 +5,8 @@
       <div class="subtitle">根据你的喜好定制 · 越用越懂你</div>
       <button
         class="refresh-btn"
-        @click="refreshRecommendations"
         :disabled="loading"
+        @click="refreshRecommendations"
       >
         🔄 刷新推荐
       </button>
@@ -39,7 +39,10 @@
       <p>正在分析你的喜好...</p>
     </div>
 
-    <div v-else-if="!hasEnoughData && likedSongsCount > 0" class="empty initializing">
+    <div
+      v-else-if="!hasEnoughData && likedSongsCount > 0"
+      class="empty initializing"
+    >
       <div class="init-icon">🎵</div>
       <p v-if="loading">正在从你喜欢的歌曲中学习...</p>
       <p v-else>已同步 {{ likedSongsCount }} 首喜欢歌曲，正在生成推荐...</p>
@@ -193,10 +196,13 @@ export default {
             const detail = await getTrackDetail(idsStr);
             if (detail.songs && detail.songs.length > 0) {
               const songsToSync = detail.songs.map(s => ({
-                id: s.id, name: s.name,
+                id: s.id,
+                name: s.name,
                 artistId: s.ar?.[0]?.id,
                 artistName: s.ar?.map(a => a.name).join(','),
-                albumId: s.al?.id, albumName: s.al?.name, duration: s.dt,
+                albumId: s.al?.id,
+                albumName: s.al?.name,
+                duration: s.dt,
                 bpm: s.bpm || undefined,
                 genre: s.tag?.join(',') || undefined,
                 publishTime: s.publishTime || undefined,

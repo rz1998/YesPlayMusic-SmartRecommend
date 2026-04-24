@@ -105,6 +105,7 @@ module.exports = {
             releaseType: 'draft',
           },
         ],
+
         directories: {
           output: 'dist_electron',
         },
@@ -203,6 +204,86 @@ module.exports = {
       // 主入口文件
       // mainProcessFile: 'src/main.js',
       // mainProcessArgs: []
+      // afterPack: 在 electron-builder 打包后注入缺失的 node_modules
+      afterPack: async ({ appOutDir }) => {
+        const fs = require('fs');
+        const path = require('path');
+        const asar = require('asar');
+
+        const asarPath = path.join(appOutDir, 'resources', 'app.asar');
+        const extractDir = path.join('/tmp', `ypm-asar-${Date.now()}`);
+        const nmSrc = path.join(__dirname, 'node_modules');
+
+        // Modules that MUST be included
+        const REQUIRED = [
+          '@neteaseapireborn/api',
+          '@unblockneteasemusic/server',
+          '@unblockneteasemusic/rust-napi-win32-x64-msvc',
+          'express', 'ws', 'axios', 'cli-color', 'compression',
+          'express-http-proxy', 'electron-store', 'electron-log',
+          'electron-updater', 'electron-devtools-installer', 'body-parser',
+          'ip', 'uuid', 'crypto-js', 'dotenv', 'express-fileupload',
+          'md5', 'music-metadata', 'node-forge', 'pac-proxy-agent',
+          'qrcode', 'safe-decode-uri-component', 'tunnel', 'xml2js', 'yargs',
+        ];
+
+        function getAllDeps(mod, seen = new Set()) {
+          if (seen.has(mod)) return seen;
+          const modPath = path.join(nmSrc, mod);
+          if (!fs.existsSync(modPath)) return seen;
+          seen.add(mod);
+          try {
+            const pkg = JSON.parse(fs.readFileSync(path.join(modPath, 'package.json'), 'utf8'));
+            const deps = { ...pkg.dependencies, ...pkg.peerDependencies };
+            for (const d of Object.keys(deps)) {
+              if (!d.startsWith('@types') && !['jest', 'eslint', 'webpack'].includes(d)) {
+                getAllDeps(d, seen);
+              }
+            }
+          } catch {}
+          return seen;
+        }
+
+        const allMods = new Set();
+        for (const m of REQUIRED) getAllDeps(m, allMods);
+
+        console.log(`[afterPack] Extracting asar to ${extractDir}...`);
+        fs.mkdirSync(extractDir, { recursive: true });
+        await asar.extract(asarPath, extractDir);
+
+        const nmDest = path.join(extractDir, 'node_modules');
+        fs.mkdirSync(nmDest, { recursive: true });
+
+        for (const mod of [...allMods].sort()) {
+          const src = path.join(nmSrc, mod);
+          const dest = path.join(nmDest, mod);
+          if (fs.existsSync(src) && fs.lstatSync(src).isDirectory()) {
+            if (fs.existsSync(dest)) fs.rmSync(dest, { recursive: true });
+            fs.cpSync(src, dest, { recursive: true });
+            console.log(`  + ${mod}`);
+          }
+        }
+
+        // Also copy @unblockneteasemusic sub-packages
+        const unblockSrc = path.join(nmSrc, '@unblockneteasemusic');
+        const unblockDest = path.join(nmDest, '@unblockneteasemusic');
+        if (fs.existsSync(unblockSrc)) {
+          fs.mkdirSync(unblockDest, { recursive: true });
+          for (const sub of fs.readdirSync(unblockSrc)) {
+            const s = path.join(unblockSrc, sub);
+            const d = path.join(unblockDest, sub);
+            if (fs.existsSync(d)) fs.rmSync(d, { recursive: true });
+            fs.cpSync(s, d, { recursive: true });
+          }
+          console.log('  + @unblockneteasemusic/*');
+        }
+
+        console.log(`[afterPack] Repacking asar (${allMods.size} modules added)...`);
+        if (fs.existsSync(asarPath)) fs.unlinkSync(asarPath);
+        await asar.createPackage(extractDir, asarPath);
+        fs.rmSync(extractDir, { recursive: true, force: true });
+        console.log('[afterPack] Done!');
+      },
     },
   },
 };

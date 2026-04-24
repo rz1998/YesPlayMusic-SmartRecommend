@@ -1,17 +1,14 @@
 appId: com.yesplaymusic.app
 productName: YesPlayMusic
 directories:
-  buildResources: build
+  app: dist_electron/bundled
   output: dist_electron
 files:
-  - dist_electron/bundled/**/*
-  - dist_electron/win-unpacked/**/*
-  - server/**/*
-  - '!node_modules/**/*'
-  - server/node_modules/**/*
+  - "**/*"
 asar: true
 asarUnpack:
   - server/**/*
+  - "**/rust-napi-win32-x64-msvc/**/*.node"
 win:
   target:
     - target: nsis

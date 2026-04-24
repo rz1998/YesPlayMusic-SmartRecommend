@@ -42,3 +42,7 @@ devenv.local.nix
 # pre-commit
 .pre-commit-config.yaml
 YesPlayMusic-win-unpacked.zip
+
+# Local database files
+server/data/*.db
+

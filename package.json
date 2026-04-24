@@ -11,7 +11,7 @@
     "electron:build": "vue-cli-service electron:build -p never",
     "electron:build-all": "vue-cli-service electron:build -p never -mwl",
     "electron:build-mac": "vue-cli-service electron:build -p never -m",
-    "electron:build-win": "vue-cli-service electron:build -p never -w",
+    "electron:build-win": "node scripts/copy-server.js && NODE_OPTIONS=--openssl-legacy-provider vue-cli-service electron:build -p never -w",
     "electron:build-linux": "vue-cli-service electron:build -p never -l",
     "electron:serve": "vue-cli-service electron:serve",
     "electron:buildicon": "electron-icon-builder --input=./build/icons/icon.png --output=build --flatten",
@@ -84,7 +84,8 @@
     "@vue/cli-plugin-vuex": "~4.5.0",
     "@vue/cli-service": "~4.5.0",
     "babel-eslint": "^10.1.0",
-    "electron": "^41.1.1",
+    "electron": "^41.3.0",
+    "electron-builder": "^23.0.0",
     "eslint": "^6.7.2",
     "eslint-config-prettier": "^8.1.0",
     "eslint-plugin-prettier": "^3.3.1",
@@ -94,8 +95,7 @@
     "sass": "^1.26.11",
     "sass-loader": "^10.0.2",
     "vue-cli-plugin-electron-builder": "~2.1.1",
-    "vue-template-compiler": "^2.6.11",
-    "electron-builder": "^23.0.0"
+    "vue-template-compiler": "^2.6.11"
   },
   "resolutions": {
     "icon-gen": "3.0.0",
