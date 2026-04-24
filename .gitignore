@@ -46,3 +46,6 @@ YesPlayMusic-win-unpacked.zip
 # Local database files
 server/data/*.db
 
+# Python cache
+*.pyc
+__pycache__/

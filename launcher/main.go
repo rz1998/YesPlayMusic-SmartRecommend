@@ -10,14 +10,23 @@ import (
 )
 
 func main() {
+	// Setup log file for GUI mode (stdout may not be visible in Windows GUI)
+	logPath := filepath.Join(filepath.Dir(os.Args[0]), "launcher.log")
+	logFile, _ := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
+	defer logFile.Close()
+	log := func(format string, args ...interface{}) {
+		msg := fmt.Sprintf(format, args...)
+		fmt.Println(msg)
+		logFile.WriteString(msg + "\n")
+	}
+
 	exePath, err := os.Executable()
 	if err != nil {
-		fmt.Println("[错误] 无法获取程序路径")
-		fmt.Scanln()
+		log("[错误] 无法获取程序路径")
 		return
 	}
 	launcherDir := filepath.Dir(exePath)
-	fmt.Printf("[启动器] 工作目录: %s\n", launcherDir)
+	log("[启动器] 工作目录: " + launcherDir)
 
 	// Find the actual Electron app
 	var appExe string
@@ -29,11 +38,10 @@ func main() {
 		}
 	}
 	if appExe == "" {
-		fmt.Println("[错误] 未找到 YesPlayMusic.exe")
-		fmt.Scanln()
+		log("[错误] 未找到 YesPlayMusic.exe")
 		return
 	}
-	fmt.Printf("[启动器] 找到主程序: %s\n", filepath.Base(appExe))
+	log("[启动器] 找到主程序: " + filepath.Base(appExe))
 
 	// PORT env tells backend where to start probing
 	env := os.Environ()
@@ -41,23 +49,22 @@ func main() {
 	env = append(env, "NODE_ENV=production")
 
 	// Start the Electron app
-	fmt.Println("[启动器] 启动 YesPlayMusic...")
+	log("[启动器] 启动 YesPlayMusic...")
 	cmd := exec.Command(appExe)
 	cmd.Env = env
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	cmd.Stdout = logFile
+	cmd.Stderr = logFile
 
 	if err := cmd.Start(); err != nil {
-		fmt.Println("[错误] 启动失败:", err)
-		fmt.Scanln()
+		log("[错误] 启动失败: " + err.Error())
 		return
 	}
-	fmt.Printf("[启动器] 已启动, PID: %d\n", cmd.Process.Pid)
+	log(fmt.Sprintf("[启动器] 已启动, PID: %d", cmd.Process.Pid))
 
 	// Wait for backend to be ready
 	// Backend's findAvailablePort probes 3001->3010, returns first available
 	// So we poll 3001..3010 and return when first one responds
-	fmt.Println("[启动器] 等待后端就绪 (3001-3010)")
+	log("[启动器] 等待后端就绪 (3001-3010)")
 	actualPort := 0
 	for port := 3001; port <= 3010; port++ {
 		for retry := 0; retry < 15; retry++ { // 15s per port
@@ -76,15 +83,14 @@ func main() {
 
 	if actualPort == 0 {
 		actualPort = 3001
-		fmt.Println("[警告] 后端就绪检测超时，使用默认端口 3001")
+		log("[警告] 后端就绪检测超时，使用默认端口 3001")
 	} else {
-		fmt.Printf("[启动器] 后端已就绪 (端口 %d)\n", actualPort)
+		log(fmt.Sprintf("[启动器] 后端已就绪 (端口 %d)", actualPort))
 	}
 
-	fmt.Println("[启动器] 启动完成!")
-	fmt.Println()
+	log("[启动器] 启动完成!")
 
 	// Wait for Electron app to exit
 	cmd.Wait()
-	fmt.Println("[启动器] YesPlayMusic 已退出")
+	log("[启动器] YesPlayMusic 已退出")
 }

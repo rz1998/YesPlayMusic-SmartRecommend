@@ -207,11 +207,15 @@ module.exports = {
       // afterPack: 在 electron-builder 打包后注入缺失的 node_modules
       afterPack: async ({ appOutDir }) => {
         const fs = require('fs');
+        const fsp = require('fs').promises;
         const path = require('path');
+        const os = require('os');
+        const { execSync } = require('child_process');
         const asar = require('asar');
 
         const asarPath = path.join(appOutDir, 'resources', 'app.asar');
-        const extractDir = path.join('/tmp', `ypm-asar-${Date.now()}`);
+        // 使用 os.tmpdir() 替代 /tmp，兼容 Windows
+        const extractDir = path.join(os.tmpdir(), `ypm-asar-${Date.now()}`);
         const nmSrc = path.join(__dirname, 'node_modules');
 
         // Modules that MUST be included
@@ -254,12 +258,22 @@ module.exports = {
         const nmDest = path.join(extractDir, 'node_modules');
         fs.mkdirSync(nmDest, { recursive: true });
 
+        // 跨平台复制函数：优先用 fs.promises.cp (Node 16+)，降级用 shell cp
+        async function copyDir(src, dest) {
+          try {
+            await fsp.cp(src, dest, { recursive: true, force: true });
+          } catch {
+            // Node < 16.7: 用 shell 命令复制
+            execSync(`cp -r "${src}" "${dest}"`, { stdio: 'ignore' });
+          }
+        }
+
         for (const mod of [...allMods].sort()) {
           const src = path.join(nmSrc, mod);
           const dest = path.join(nmDest, mod);
           if (fs.existsSync(src) && fs.lstatSync(src).isDirectory()) {
             if (fs.existsSync(dest)) fs.rmSync(dest, { recursive: true });
-            fs.cpSync(src, dest, { recursive: true });
+            await copyDir(src, dest);
             console.log(`  + ${mod}`);
           }
         }
@@ -273,7 +287,7 @@ module.exports = {
             const s = path.join(unblockSrc, sub);
             const d = path.join(unblockDest, sub);
             if (fs.existsSync(d)) fs.rmSync(d, { recursive: true });
-            fs.cpSync(s, d, { recursive: true });
+            await copyDir(s, d);
           }
           console.log('  + @unblockneteasemusic/*');
         }
