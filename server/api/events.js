@@ -30,6 +30,7 @@ router.post('/skip', (req, res) => {
 });
 
 // Record like event (toggle: like if currently unliked, unlike if currently liked)
+// Uses DELETE then INSERT to prevent duplicate like records under concurrent requests
 router.post('/like', (req, res) => {
   const { userId, songId } = req.body;
 
@@ -40,7 +41,7 @@ router.post('/like', (req, res) => {
   // Check current like status by getting the latest event for this song
   const events = db.getUserEventsForSong(userId, String(songId));
   const latestEvent = events.length > 0 ? events[0].eventType : null;
-  
+
   let action;
   if (latestEvent === 'like') {
     // Already liked, record unlike
@@ -48,10 +49,13 @@ router.post('/like', (req, res) => {
     action = 'unliked';
   } else {
     // Not liked or already unliked, record like
+    // First delete any existing like/unlike events for this user+song to prevent
+    // duplicate records under concurrent requests, then insert the new event
+    db.deleteUserSongEvents(userId, songId, ['like', 'unlike']);
     db.addEvent(userId, songId, 'like', 0, false);
     action = 'liked';
   }
-  
+
   cache.invalidateCache(userId);
   res.json({ success: true, action });
 });

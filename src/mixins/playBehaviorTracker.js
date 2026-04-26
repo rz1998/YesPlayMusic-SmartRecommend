@@ -27,9 +27,6 @@ import {
 export default {
   data() {
     return {
-      // Track the previous song to detect skips
-      previousTrackId: null,
-      previousTrackDuration: 0,
       skipThreshold: 30, // Consider skip if played < 30 seconds
       // Listen duration tracking
       listenStartTime: 0,
@@ -49,13 +46,10 @@ export default {
       handler(newTrack, oldTrack) {
         if (!newTrack || !newTrack.id) return;
 
-        // If there was a previous track and it changed
-        if (this.previousTrackId && this.previousTrackId !== newTrack.id) {
+        // Detect song change by comparing oldTrack.id vs newTrack.id directly
+        if (oldTrack && oldTrack.id && oldTrack.id !== newTrack.id) {
           this.handleTrackChange(newTrack, oldTrack, 'songChange');
         }
-
-        this.previousTrackId = newTrack.id;
-        this.previousTrackDuration = newTrack.duration || 0;
       },
       immediate: false,
     },
@@ -152,8 +146,6 @@ export default {
     onPlay(song) {
       if (!song || !song.id) return;
       this.isPlaying = true;
-      this.previousTrackId = song.id;
-      this.previousTrackDuration = song.duration || 0;
       this.listenDuration = 0;
       this.listenStartTime = Date.now();
       this.startListenTimer();

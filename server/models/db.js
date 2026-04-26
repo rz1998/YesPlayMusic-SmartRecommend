@@ -169,6 +169,22 @@ function getUserEventsForSong(userId, songId) {
   }));
 }
 
+/**
+ * Delete specific event types for a user+song combination.
+ * Used to prevent duplicate like/unlike records under concurrent requests.
+ * @param {string} userId
+ * @param {string} songId
+ * @param {string[]} eventTypes - e.g. ['like', 'unlike']
+ */
+function deleteUserSongEvents(userId, songId, eventTypes) {
+  if (!eventTypes || eventTypes.length === 0) return;
+  const placeholders = eventTypes.map(() => '?').join(',');
+  run(
+    `DELETE FROM user_events WHERE user_id = ? AND song_id = ? AND event_type IN (${placeholders})`,
+    [userId, String(songId), ...eventTypes]
+  );
+}
+
 // Get user's liked songs (only songs where the latest event is 'like', not 'unlike')
 function getUserLikedSongs(userId, limit = 1000) {
   // Get the latest event for each song by this user, only considering like/unlike events
@@ -446,6 +462,7 @@ module.exports = {
   addEvent,
   getUserEvents,
   getUserEventsForSong,
+  deleteUserSongEvents,
   getUserPlayedSongs,
   getUserLikedSongs,
   getUserSkippedSongs,
