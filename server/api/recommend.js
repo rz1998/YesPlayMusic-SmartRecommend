@@ -34,8 +34,8 @@ router.get('/debug', (req, res) => {
 router.get('/', async (req, res) => {
   const { userId, limit = 20, excludePlayed = true, refresh } = req.query;
   
-  if (!userId) {
-    return res.status(400).json({ error: 'userId is required' });
+  if (!userId || typeof userId !== 'string' || userId.length > 128) {
+    return res.status(400).json({ error: 'Invalid userId' });
   }
 
   // Check cache first (skip cache if refresh=true)
