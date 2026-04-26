@@ -357,10 +357,12 @@ const CACHE_MAX_USERS = 100;            // 最大缓存用户数
 
 ## 8. 变更记录
 
-### 2026-04-26（六次审查后）
+### 2026-04-26（七次审查后）
 
 #### Bug 修复
 - 🔧 **computeSimilarity BPM/时长相似度死代码** - extractFeatures 返回 bpm(单值) 而非 avgBpm，导致 /similar/:songId 中 BPM 和时长相似度计算恒为 undefined。改为 vec1.bpm/vec1.duration ✅
+- 🔧 **sync-songs 冷启动 skip→like 失效** - existingEvents.length===0 导致 skip 过的歌无法导入为 like，改为 latestEvent!=='like' ✅
+- 🔧 **旧数据库缺少扩展列** - 添加 song_features 表迁移（mood/language/decade/energy/danceability/tags），服务重启自动 ALTER TABLE ✅
 - 🔧 **mergePreferenceVectors avg 死代码** - return 语句之后代码不执行，改为 const merged = {...} 后计算再返回
 - 🔧 **finalRecommendations 未定义** - scoredCandidates.slice 前未定义变量，提前 let 声明
 - 🔧 **Player 单曲循环双重 scrobble** - _replaceCurrentTrack 新增 skipScrobble 参数，repeat-one 时跳过第二次 scrobble
