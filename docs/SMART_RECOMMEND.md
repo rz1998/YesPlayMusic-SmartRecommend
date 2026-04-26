@@ -155,13 +155,15 @@ match_score = {
   mood:        匹配 → 0.20,
   lang:        匹配 → 0.25,
   decade:      匹配 → 0.10,
-  bpm:         1 - |avgBpm - songBpm| / 50,       权重 0.10（仅正向）,
-  energy:      1 - |avgEnergy - songEnergy| × 2,     权重 0.05（仅正向）,
-  danceability: 1 - |avgDance - songDance| × 2,      权重 0.05（仅正向）,
+  bpm:         1 - |avgBpm - songBpm| / 50,       权重 0.10（仅正向，BPM差50时相似度=0）,
+  energy:      1 - |avgEnergy - songEnergy| × 2,     权重 0.05（仅正向，能量差≥0.5时相似度=0）,
+  danceability: 1 - |avgDance - songDance| × 2,      权重 0.05（仅正向，舞蹈性差≥0.5时相似度=0）,
 }
+
+总权重 = 1.55（8维度）。energy/danceability ≥ 0.5 差值时相似度归零；bpm 差值 ≥ 50 时相似度归零。
 ```
 
-总权重 = 1.50（like 向量）；skip 向量仅用 artist(0.5) + genre(0.3) = 0.80，跳过惩罚范围 [0, 1.5]
+总权重 = 1.55（like 向量，8维度）；skip 向量仅用 artist(0.5) + genre(0.3) = 0.80，跳过惩罚范围 [0, 1.2]
 
 > **设计说明：** skip 信号只需要反映"避开什么艺术家/流派"，mood/lang/decade/BPM/energy/danceability 等细粒度维度对 skip 判定干扰较大，因此 skip 向量仅用 2 维。skip_score 乘以 α=1.5 补偿维度差异，保证 skip 全匹配惩罚为 -1.5，与 like 全匹配 +1.0 相抗衡。
 
