@@ -130,9 +130,10 @@ router.post('/sync-songs', (req, res) => {
     for (const song of limitedSongs) {
       const songId = String(song.id || song.songId);
       const duration = song.duration || song.dt || 0;
-      // 检查是否已有该歌曲的更早事件（有则跳过，避免重复 like 记录）
+      // 检查该歌曲的最新事件是否已是 like（避免覆盖用户手动操作）
       const existingEvents = db.getUserEventsForSong(userId, songId);
-      if (existingEvents.length === 0) {
+      const latestEvent = existingEvents.length > 0 ? existingEvents[0].eventType : null;
+      if (latestEvent !== 'like') {
         db.addEvent(userId, songId, 'like', duration, true, duration);
         actualLikesRecorded++;
       }

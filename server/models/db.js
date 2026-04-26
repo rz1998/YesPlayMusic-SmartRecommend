@@ -38,6 +38,25 @@ async function initDb() {
     } catch (e) {
       // Column already exists or other error - ignore
     }
+
+    // Migration: add extended columns to song_features if they don't exist
+    const songFeatureMigrations = [
+      { col: 'mood', type: 'TEXT' },
+      { col: 'language', type: 'TEXT' },
+      { col: 'decade', type: 'TEXT' },
+      { col: 'energy', type: 'REAL' },
+      { col: 'danceability', type: 'REAL' },
+      { col: 'tags', type: 'TEXT' },
+    ];
+    for (const mig of songFeatureMigrations) {
+      try {
+        db.run(`ALTER TABLE song_features ADD COLUMN ${mig.col} ${mig.type}`);
+        console.log(`✅ Migrated: added ${mig.col} column to song_features`);
+        saveDb();
+      } catch (e) {
+        // Column already exists or other error - ignore
+      }
+    }
   } else {
     db = new SQL.Database();
     // Create tables
