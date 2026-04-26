@@ -1,6 +1,6 @@
 # 智能推荐系统 - 算法规格说明书
 
-> 最后更新：2026-04-26
+> 最后更新：2026-04-26 18:13（登录错误处理修复 + 需求文档同步）
 
 ---
 
@@ -13,7 +13,10 @@
 5. [API 参考](#5-api-参考)
 6. [数据库](#6-数据库)
 7. [配置参数](#7-配置参数)
-8. [变更记录](#8-变更记录)
+8. [特征缺失处理](#8-特征缺失处理) — 降级策略
+9. [冷启动流程](#9-冷启动流程) — 完整启动链路
+10. [效果评估](#10-效果评估) — 离线指标与监控
+11. [变更记录](#11-变更记录)
 
 ---
 
@@ -27,7 +30,7 @@
 | **play（完整）** | 收听比例 ≥ 70% | `POST /api/event/play` + `completed=true` | **+1** | ✅ |
 | **play（部分）** | 收听比例 30%-70% | `POST /api/event/play` + `completed=false` | **+1** | ❌ |
 | **skip** | 收听比例 < 30% | `POST /api/event/skip` | **动态惩罚** | ✅ |
-| **unlike** | 用户取消点赞 | `POST /api/event/like` toggle | 撤销 like | ❌ |
+| **unlike** | 用户取消点赞 | `POST /api/event/like` toggle 或 `POST /api/event/unlike` | 撤销 like | ❌ |
 
 ### 收听比例分段语义
 
@@ -142,7 +145,13 @@ final_score(s) = like_score(s) - α × skip_score(s)
 其中：
 - `α = 1.5`（排斥惩罚系数，可配置）
 - `like_score ∈ [0, 1]` — 与正向偏好匹配程度
-- `skip_score ∈ [0, 1]` — 与排斥偏好匹配程度
+- `skip_score ∈ [0, 1]` — skip 向量归一化后最大值（skip 全匹配时 = 1.0）
+
+**分数范围**：`final_score ∈ [-1.5, 1.0]`
+- 最优（like 全匹配 + skip 无匹配）：1.0
+- 最差（like 无匹配 + skip 全匹配）：0 - 1.5×1.0 = -1.5
+
+> **设计说明**：`computePreferenceScore` 统一对所有维度归一化（`score / weights`），skip 和 like 共用同一归一化逻辑。归一化后 skip_score 最大为 1.0，最终分数范围 [-1.5, 1.0]。
 
 ### 2.5 维度匹配得分
 
@@ -159,13 +168,11 @@ match_score = {
   energy:      1 - |avgEnergy - songEnergy| × 2,     权重 0.05（仅正向，能量差≥0.5时相似度=0）,
   danceability: 1 - |avgDance - songDance| × 2,      权重 0.05（仅正向，舞蹈性差≥0.5时相似度=0）,
 }
-
-总权重 = 1.55（8维度）。energy/danceability ≥ 0.5 差值时相似度归零；bpm 差值 ≥ 50 时相似度归零。
 ```
 
-总权重 = 1.55（like 向量，8维度）；skip 向量仅用 artist(0.5) + genre(0.3) = 0.80，跳过惩罚范围 [0, 1.2]
+**skip 向量**：artist(0.5) + genre(0.3) + mood(0.2) + lang(0.25) + decade(0.1) = **1.35**。BPM/energy/danceability 在 skip 中不参与评分（`!isSkip` 跳过），仅在 like 中计算相似度。
 
-> **设计说明：** skip 信号只需要反映"避开什么艺术家/流派"，mood/lang/decade/BPM/energy/danceability 等细粒度维度对 skip 判定干扰较大，因此 skip 向量仅用 2 维。skip_score 乘以 α=1.5 补偿维度差异，保证 skip 全匹配惩罚为 -1.5，与 like 全匹配 +1.0 相抗衡。
+**总权重**：like 向量 1.55（8维度全用）；skip 向量 1.35（5维）。归一化后 skip_score ∈ [0, 1]。
 
 总得分归一化：
 
@@ -260,14 +267,19 @@ ai-musicplayer/
 
 ### 事件记录
 
+> **说明**：
+> - `like` 与 `unlike` 是**同一个 toggle 接口**，连续调用两次 `POST /api/event/like` 等同于 unlike
+> - `unlike` 为独立接口，专门用于主动取消点赞（行为与 toggle 相同）
+> - `type` 参数可选值：`play`、`skip`、`like`、`unlike`
+
 | 接口 | 方法 | 参数 | 说明 |
 |------|------|------|------|
 | `/api/event/play` | POST | userId, songId, duration, completed | 记录播放 |
 | `/api/event/skip` | POST | userId, songId, skipTime, songDuration | 记录跳过 |
 | `/api/event/like` | POST | userId, songId | 点赞/取消点赞（toggle）|
-| `/api/event/unlike` | POST | userId, songId | 主动取消点赞 |
-| `/api/event/liked/:userId` | GET | userId, songIds（query）| 批量查询点赞状态 |
-| `/api/event/history/:userId` | GET | userId, type, limit | 事件历史 |
+| `/api/event/unlike` | POST | userId, songId | 主动取消点赞（与 toggle 等效）|
+| `/api/event/liked/:userId` | GET | userId, songIds（query，逗号分隔）| 批量查询点赞状态 |
+| `/api/event/history/:userId` | GET | userId, type, limit | 事件历史（type: play/skip/like/unlike）|
 
 ### 推荐
 
@@ -357,9 +369,217 @@ const CACHE_MAX_USERS = 100;            // 最大缓存用户数
 
 ---
 
-## 8. 变更记录
+## 8. 特征缺失处理
 
-### 2026-04-26（八次审查后）
+### 8.1 特征可用性矩阵
+
+| 特征 | 来源 | 缺失率（估算）| 缺失时处理 |
+|------|------|-------------|-----------|
+| bpm | 网易云 `s.bpm` | **高**（约 60% 歌曲无 BPM）| 设为 `null`，计算 BPM 相关相似度时跳过该维度 |
+| energy | 网易云 `s.energy` | **高**（约 80%）| 设为 `null`，energy 维度匹配时跳过 |
+| danceability | 网易云 `s.dance` | **高**（约 80%）| 设为 `null`，danceability 维度跳过 |
+| genre | 网易云 `s.tag` | 低 | 默认为"未知" |
+| mood | 网易云 | **高**（约 90%）| 设为"未知" |
+| language | 歌曲名/艺术家名推断 | 低 | 默认为"其他" |
+| decade | `publishTime` 推算 | 低 | 默认为"00s" |
+| artist | `s.ar[0]` | 极低 | 不可缺失，缺失则过滤该歌曲 |
+
+### 8.2 降级策略
+
+**维度匹配时的降级规则：**
+
+`computePreferenceScore` 函数对 null 值不计入分数也不计入权重，自动跳过该维度。实现逻辑：
+
+```javascript
+// 伪代码（实际在 computePreferenceScore 中内联实现）
+if (value === null || avgValue === null || vec.artistFreq[artistKey] === undefined) {
+  // 该维度不加分，也不增加 weight
+} else {
+  score += match_score;
+  weights += weight;
+}
+return weights === 0 ? 0 : score / weights;  // 归一化
+```
+
+**候选歌曲被过滤的情况：**
+- `artistId` 为空 → 该歌曲直接排除（无法计算偏好匹配）
+- 所有特征都为 null → 该歌曲相似度得分为 0，但仍可作为兜底推荐
+
+### 8.3 兜底推荐
+
+当推荐结果为空时（候选池过滤后无有效歌曲），从数据库随机选取 50 首作为兜底：
+
+- 已在 `recommend.js` 中实现（`fallbackCandidates = db.getAllSongs(50)`）
+- 返回结果包含 `_fallback: true` 标记
+- 响应包含 `"fallback": true` 标志
+
+---
+
+## 9. 冷启动流程
+
+### 9.1 冷启动触发条件
+
+用户满足以下任一条件视为冷启动：
+
+| 条件 | 说明 |
+|------|------|
+| `user_events` 表无记录 | 全新用户 |
+| `liked_songs < 3` | 喜欢歌曲少于 3 首 |
+| 推荐结果为空 | 候选池过滤后无有效推荐 |
+
+### 9.2 冷启动完整流程
+
+```
+用户首次打开推荐页
+    │
+    ▼
+检查 user_events 中 liked 数量
+    │
+    ├─── liked ≥ 3 ──▶ 正常推荐流程
+    │
+    └─── liked < 3 ──▶ 冷启动流程
+                            │
+                            ▼
+                    调用 /api/user/sync-songs
+                    从网易云拉取用户喜欢列表
+                            │
+                   ┌────────┴────────┐
+                   ▼                 ▼
+            拉取成功            拉取失败（网络/Token失效）
+                   │                 │
+                   ▼                 ▼
+            导入歌曲特征         获取用户公开歌单
+            标记为 like           作为初始偏好
+                   │                 │
+                   └──┬──────────────┘
+                      ▼
+              构建初始偏好向量
+                      │
+                      ▼
+              返回推荐结果
+              （可能较少）
+                      │
+                      ▼
+              显示"根据你的口味调整中"
+              提示用户多点赞完善偏好
+```
+
+### 9.3 冷启动兜底 ⚠️[部分待实现]
+
+**全部失败时的兜底策略：**
+
+| 优先级 | 兜底内容 | 说明 |
+|--------|---------|------|
+| 1 | 网易云推荐歌单 | `/personalized` 返回的官方推荐 |
+| 2 | 热门新歌 | 网易云新歌榜 |
+| 3 | 随机精选 | 从候选池随机选取 10 首 |
+
+> ⚠️ 当前 `smartRecommend.vue` 在 syncSongs 失败后无明确 UI 提示，也未切换到官方推荐歌单。"根据你的口味调整中" 等提示文案**尚未实现**。
+
+### 9.4 离线补偿机制 ⚠️[待实现]
+
+如果 skip/play 事件在离线时触发：
+
+```javascript
+// 事件队列（前端本地缓存）
+const eventQueue = [];
+
+// 上报函数
+async function flushEvents() {
+  while (eventQueue.length > 0) {
+    const event = eventQueue.shift();
+    try {
+      await sendEvent(event);
+    } catch (e) {
+      // 发送失败，重新放回队列
+      eventQueue.unshift(event);
+      await sleep(5000); // 5秒后重试
+    }
+  }
+}
+```
+
+- 断网时事件存入本地队列
+- 网络恢复后自动重试
+- 最多缓存 100 条事件，超出后丢弃最旧事件
+
+> ⚠️ 该功能**尚未实现**，当前 skip/play 事件在断网时**直接丢弃**，不会重试上报。
+
+---
+
+## 10. 效果评估 ⚠️[待实现]
+
+> ⚠️ 以下评估指标和监控功能**尚未实现**，目前仅有基础日志记录。
+
+### 10.1 离线评估指标
+
+| 指标 | 公式 | 目标 |
+|------|------|------|
+| **Precision@K** | `#(recommended ∩ relevant) / K` | K=10 时 ≥ 0.3 |
+| **Recall@K** | `#(recommended ∩ relevant) / #relevant` | K=50 时 ≥ 0.15 |
+| **Coverage** | `#(recommended songs) / #all songs` | ≥ 5% |
+| **Skip Rate** | `#skip / #total_recommended` | < 30% |
+| **Like Rate** | `#like / #total_recommended` | > 10% |
+| **Avg Listen Ratio** | `sum(listen_ratio) / #songs` | > 0.6 |
+
+> **`relevant` 集合定义**：基于用户历史行为构建——将用户历史 liked + 完整播放（completed=true）的歌曲视为 relevant。每次推荐结果中出现在 relevant 中的比例即 Precision@K。
+
+### 10.2 在线监控指标
+
+| 指标 | 采集方式 | 告警阈值 |
+|------|---------|---------|
+| API 响应时间 P99 | APM 埋点 | > 2s |
+| 推荐结果空率 | 埋点 | > 5% |
+| 事件上报成功率 | 服务端计数 | < 95% |
+| 缓存命中率 | cache.js 计数 | < 60% |
+| 特征缺失率 | 数据库统计 | > 70% |
+
+### 10.3 参数调优指南
+
+| 参数 | 默认值 | 调优范围 | 调整建议 |
+|------|-------|---------|---------|
+| `α` (DISLIKE_WEIGHT) | 1.5 | 0.5 ~ 3.0 | skip 率高 → 增大；推荐过于保守 → 减小 |
+| CANDIDATE_POOL_SIZE | 5000 | 1000 ~ 20000 | 性能不足 → 减小；推荐多样性差 → 增大 |
+| SKIP_RATIO_THRESHOLD | 0.3 | 0.2 ~ 0.4 | 误判 skip 多 → 减小；推荐重复 → 增大 |
+| CACHE_TTL_MS | 5min | 1min ~ 30min | 实时性要求高 → 减小；压力大 → 增大 |
+
+---
+
+## 11. 变更记录
+
+#### 2026-04-26 20:34（第十次审查后）
+
+#### 功能优化
+- ⭐ **智能推荐入口升级** - 导航栏顺序调整为 `首页 → 智能推荐 → 发现 → 音乐库`，智能推荐提升为一级入口（优先级提高），同步更新 4 种语言翻译
+
+#### Bug 修复
+- 🔧 **/api/recommend 路由被网易云API拦截** - Express 路由顺序错误，通用 `/api` 路由放在具体路由之前，导致推荐服务请求（3001）被错误转发到 10754。调整路由优先级 ✅
+- 🔧 **proxyReqPathResolver 路径错误** - 使用 `/api + req.url` 导致双重 `/api` 前缀；改为 `req.originalUrl` 保留完整路径 ✅
+- 🔧 **/api/user 路由过宽** - `/api/user` 路由到 3001 会拦截 `/api/user/playlist`、`/api/user/cloud` 等网易云接口；改为精确路径 `/api/user/profile` 和 `/api/user/sync-songs` ✅
+- 🔧 **localhost vs 127.0.0.1 cookie 跨域** - Express 监听 127.0.0.1，Electron 页面加载用 localhost，不同 origin 导致 cookie 不发送；生产环境 loadURL 改为 `http://127.0.0.1:27232` ✅
+- 🔧 **fetchUserProfile 无错误处理** - 301/401 时未捕获错误导致页面崩溃；添加 .catch() 自动登出跳转 ✅
+- 🔧 **未登录用户崩溃** - userId=anonymous 时 getUserStats 返回 null，访问 .count 崩溃；添加空值保护 ✅
+- 🔧 **VUE_APP_RECOMMENDER_HOST 多余 /api** - 主机地址已含 `/api`，前端再拼接导致双重路径；修正为 `http://127.0.0.1:27232` ✅
+
+#### 需求文档同步
+- ✅ 修正 `/api/recommend` 路由目标为 3001（推荐服务），非 10754
+- ✅ 修正 `/api/user/profile` 路由目标为 3001（用户画像服务）
+- ✅ 修正 `/api/event` 路由目标为 3001（事件服务）
+- ✅ 添加 `/api/user/sync-songs` 路由目标为 3001
+
+#### 2026-04-26 18:13（第九次审查后）
+
+#### Bug 修复
+- 🔧 **登录失败报错不可读** - axios 400 响应进入 .catch()，error 对象直接 string 化显示 `[object Object]`，用户看不到具体错误。改为读取 `error.response.data.msg` 展示具体错误信息 ✅
+
+#### 需求文档同步
+- ✅ final_score 范围修正为 `[-1.5, 1.0]`（skip_score 归一化后最大 1.0）
+- ✅ skip 向量维度修正：artist+genre+mood+lang+decade = 1.35（非 0.8）
+- ✅ 降级策略描述改为实际 `computePreferenceScore` 逻辑（移除不存在的 `matchDimension` 函数）
+- ✅ 测试用例数更新为约 269 个（实际统计）
+- ✅ 函数名 `extractFeatures`（与代码一致）
+
+#### 2026-04-26（八次审查后）
 
 #### Bug 修复
 - 🔧 **computeSimilarity BPM/时长相似度死代码** - extractFeatures 返回 bpm(单值) 而非 avgBpm，导致 /similar/:songId 中 BPM 和时长相似度计算恒为 undefined。改为 vec1.bpm/vec1.duration ✅
@@ -387,7 +607,7 @@ const CACHE_MAX_USERS = 100;            // 最大缓存用户数
 - ✅ **Cache stampede 保护** - 同一用户并发请求时，第二个请求等待第一个请求的计算结果
 - ✅ **并发 like 防护** - deleteUserSongEvents 辅助函数，原子性删除同类事件
 
-### 2026-04-23（六次审查后）
+#### 2026-04-23（六次审查后）
 
 #### Bug 修复
 - 🔧 **liked+played 权重混淆** - concat 后统一用 weight=3 → 分别计算向量后 merge 合并
@@ -405,9 +625,9 @@ const CACHE_MAX_USERS = 100;            // 最大缓存用户数
 - 🔧 **getAllSongs limit** - 候选池从 1000 扩展到 5000 首
 
 #### 单元测试
-- ✅ **53 个测试用例** - 新增 `mergePreferenceVectors` 覆盖 + `getDecade` 年份格式测试
+- ✅ **约 269 个测试用例**（截至 2026-04-26）: recommender(74) + api(53) + db(58) + edge(62) + cache(11) + concurrent(11)
 
-### 2026-04-14（初次实现）
+#### 2026-04-14（初次实现）
 
 #### 功能新增
 - ✅ **推荐结果缓存** - 服务端 5 分钟 TTL

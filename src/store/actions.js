@@ -1,5 +1,6 @@
 // import store, { state, dispatch, commit } from "@/store";
-import { isAccountLoggedIn, isLooseLoggedIn } from '@/utils/auth';
+import router from '@/router';
+import { isAccountLoggedIn, isLooseLoggedIn, doLogout } from '@/utils/auth';
 import { likeATrack } from '@/api/track';
 import { getPlaylistDetail } from '@/api/playlist';
 import { getTrackDetail } from '@/api/track';
@@ -63,6 +64,7 @@ export default {
   fetchLikedSongs: ({ state, commit }) => {
     if (!isLooseLoggedIn()) return;
     if (isAccountLoggedIn()) {
+      if (!state.data.user?.userId) return;
       return userLikedSongsIDs({ uid: state.data.user.userId }).then(result => {
         if (result.ids) {
           commit('updateLikedXXX', {
@@ -192,10 +194,21 @@ export default {
   },
   fetchUserProfile: ({ commit }) => {
     if (!isAccountLoggedIn()) return;
-    return userAccount().then(result => {
-      if (result.code === 200) {
-        commit('updateData', { key: 'user', value: result.profile });
-      }
-    });
+    return userAccount()
+      .then(result => {
+        if (result.code === 200) {
+          commit('updateData', { key: 'user', value: result.profile });
+        }
+      })
+      .catch(error => {
+        if (
+          error?.response?.status === 301 ||
+          error?.response?.status === 401
+        ) {
+          doLogout();
+          commit('updateData', { key: 'loginMode', value: null });
+          router.push({ name: 'loginAccount' });
+        }
+      });
   },
 };

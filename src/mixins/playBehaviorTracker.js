@@ -96,7 +96,9 @@ export default {
         if (playedDuration > this.skipThreshold) {
           const completed =
             songDuration > 0 && playedDuration >= songDuration * 0.7;
-          this.recordPlay(oldTrack.id, playedDuration, completed);
+          // completed=true 时 duration 应传歌曲总时长（spec §1.2 & §5），而非实际收听时长
+          const duration = completed ? songDuration : playedDuration;
+          this.recordPlay(oldTrack.id, duration, completed);
         }
       }
       // trigger === 'naturalEnd' → skip, let Player.js _scrobble handle it

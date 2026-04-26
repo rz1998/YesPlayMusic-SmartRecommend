@@ -49,3 +49,4 @@ server/data/*.db
 # Python cache
 *.pyc
 __pycache__/
+.env.production

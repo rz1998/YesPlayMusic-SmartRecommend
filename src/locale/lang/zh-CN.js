@@ -5,6 +5,7 @@ export default {
   },
   nav: {
     home: '首页',
+    smartRecommend: '智能推荐',
     explore: '发现',
     library: '音乐库',
     search: '搜索',

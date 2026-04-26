@@ -16,6 +16,11 @@
           $t('nav.home')
         }}</router-link>
         <router-link
+          to="/smart-recommend"
+          :class="{ active: $route.name === 'smart-recommend' }"
+          >{{ $t('nav.smartRecommend') }}</router-link
+        >
+        <router-link
           to="/explore"
           :class="{ active: $route.name === 'explore' }"
           >{{ $t('nav.explore') }}</router-link

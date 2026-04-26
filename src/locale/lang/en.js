@@ -5,6 +5,7 @@ export default {
   },
   nav: {
     home: 'Home',
+    smartRecommend: 'Smart Recommend',
     explore: 'Explore',
     library: 'Library',
     search: 'Search',

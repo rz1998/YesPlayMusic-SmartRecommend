@@ -44,7 +44,7 @@ export function startRecommenderServer() {
   const isDev = !app.isPackaged;
   const serverPath = isDev
     ? path.join(process.cwd(), 'server')
-    : path.join(process.resourcesPath, 'app.asar.unpacked', 'server');
+    : path.join(process.resourcesPath, 'app', 'server');
 
   recommenderServer = spawn('node', ['server.js'], {
     cwd: serverPath,

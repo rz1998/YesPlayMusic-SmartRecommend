@@ -240,17 +240,17 @@ function extractFeatures(song) {
     genre: song.genre || 'unknown',
     publishTime: song.publishTime || 0,
     // 扩展维度
-    mood: song.mood || 'neutral',           // 情绪: happy, sad, energetic, calm, romantic
-    language: song.language || 'unknown',   // 语言: 中文, 英文, 日文, 韩文
-    decade: song.decade || getDecade(song.publishTime),  // 年代: 80s, 90s, 00s, 10s, 20s
-    energy: song.energy || 0.5,             // 能量值: 0-1
-    danceability: song.danceability || 0.5, // 可舞性: 0-1
+    mood: song.mood || null,           // 情绪: null 时跳过该维度（spec §8.1）
+    language: song.language || null,   // 语言: null 时跳过该维度
+    decade: song.decade || getDecade(song.publishTime) || '00s',  // 年代: 80s, 90s, 00s, 10s, 20s（spec §8.1）
+    energy: song.energy ?? null,             // 能量值: null 时跳过该维度（spec §8.1）
+    danceability: song.danceability ?? null, // 可舞性: null 时跳过该维度（spec §8.1）
     tags: song.tags || [],                  // 标签数组
   };
 }
 
 function getDecade(publishTime) {
-  if (!publishTime) return 'unknown';
+  if (!publishTime) return '00s';  // spec §8.1: decade 默认 00s
   // 兼容两种格式：年份数字 或 秒级时间戳
   // 年份 < 10000（如 2024），时间戳秒 > 10000（如 486864000 = 1985年）
   let year;

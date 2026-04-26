@@ -103,7 +103,9 @@ export default {
       // 如果有喜欢的歌曲且数量变化了，才重新同步（避免每次页面加载都重复请求）
       const STORAGE_KEY = 'ypm_liked_sync_count_' + this.userId;
       const lastCount = parseInt(localStorage.getItem(STORAGE_KEY) || '0', 10);
-      if (likedCount > 0 && likedCount !== lastCount) {
+      // 冷启动条件（spec §9.2）：liked < 3 时尝试从网易云同步喜欢列表
+      // 包括：全新用户(liked=0)、偏好不足用户(liked<3)、从充足偏好降级的情况
+      if (likedCount < 3 && (lastCount === 0 || likedCount !== lastCount)) {
         try {
           // 获取喜欢的歌曲ID列表（最多500首）
           const likedSongIds = this.liked.songs.slice(0, 500);

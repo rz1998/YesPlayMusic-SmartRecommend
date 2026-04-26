@@ -93,6 +93,7 @@ service.interceptors.response.use(
         router.push({ name: 'login' });
       }
     }
+    return Promise.reject(error);
   }
 );
 

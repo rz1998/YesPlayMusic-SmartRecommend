@@ -5,6 +5,7 @@ export default {
   },
   nav: {
     home: 'Anasayfa',
+    smartRecommend: 'Akıllı Öneri',
     explore: 'Keşfet',
     library: 'Kitaplık',
     search: 'Ara',

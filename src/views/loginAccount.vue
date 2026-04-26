@@ -22,6 +22,7 @@
                 @focus="inputFocus = 'countryCode'"
                 @blur="inputFocus = ''"
                 @keyup.enter="login"
+                @input="loginError = ''"
               />
               <input
                 id="phoneNumber"
@@ -30,6 +31,7 @@
                 @focus="inputFocus = 'phone'"
                 @blur="inputFocus = ''"
                 @keyup.enter="login"
+                @input="loginError = ''"
               />
             </div>
           </div>
@@ -47,6 +49,7 @@
                 @focus="inputFocus = 'email'"
                 @blur="inputFocus = ''"
                 @keyup.enter="login"
+                @input="loginError = ''"
               />
             </div>
           </div>
@@ -65,6 +68,7 @@
                 @focus="inputFocus = 'password'"
                 @blur="inputFocus = ''"
                 @keyup.enter="login"
+                @input="loginError = ''"
               />
             </div>
           </div>
@@ -78,6 +82,9 @@
             {{ qrCodeInformation }}
           </div>
         </div>
+      </div>
+      <div v-show="loginError" class="login-error">
+        {{ loginError }}
       </div>
       <div v-show="mode !== 'qrCode'" class="confirm">
         <button v-show="!processing" @click="login">
@@ -141,6 +148,7 @@ export default {
       qrCodeSvg: '',
       qrCodeCheckInterval: null,
       qrCodeInformation: '打开网易云音乐APP扫码登录',
+      loginError: '',
     };
   },
   computed: {
@@ -197,7 +205,11 @@ export default {
           .then(this.handleLoginResponse)
           .catch(error => {
             this.processing = false;
-            nativeAlert(`发生错误，请检查你的账号密码是否正确\n${error}`);
+            const msg =
+              error?.response?.data?.msg ??
+              error?.response?.data?.message ??
+              '账号或密码错误';
+            this.loginError = `登录失败：${msg}`;
           });
       } else {
         this.processing = this.validateEmail();
@@ -210,7 +222,11 @@ export default {
           .then(this.handleLoginResponse)
           .catch(error => {
             this.processing = false;
-            nativeAlert(`发生错误，请检查你的账号密码是否正确\n${error}`);
+            const msg =
+              error?.response?.data?.msg ??
+              error?.response?.data?.message ??
+              '账号或密码错误';
+            this.loginError = `登录失败：${msg}`;
           });
       }
     },
@@ -229,7 +245,7 @@ export default {
         });
       } else {
         this.processing = false;
-        nativeAlert(data.msg ?? data.message ?? '账号或密码错误，请检查');
+        this.loginError = data.msg ?? data.message ?? '账号或密码错误，请检查';
       }
     },
     getQrCodeKey() {
@@ -429,6 +445,17 @@ export default {
   a {
     padding: 0 8px;
   }
+}
+
+.login-error {
+  margin-top: 12px;
+  padding: 8px 12px;
+  background: rgba(240, 65, 65, 0.12);
+  border: 1px solid rgba(240, 65, 65, 0.3);
+  border-radius: 4px;
+  color: #f04141;
+  font-size: 13px;
+  text-align: center;
 }
 
 .notice {

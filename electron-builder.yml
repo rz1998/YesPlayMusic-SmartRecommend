@@ -5,23 +5,16 @@ directories:
   output: dist_electron
 files:
   - "**/*"
-asar: true
-asarUnpack:
-  - server/**/*
-  - "**/rust-napi-win32-x64-msvc/**/*.node"
+asar: false
 win:
   target:
     - target: nsis
-      arch:
-        - x64
-    - target: portable
       arch:
         - x64
   icon: build/icons/icon.ico
 nsis:
   deleteAppDataOnUninstall: false
   artifactName: ai-musicplayer-${version}-win-setup.exe
-portable:
-  artifactName: ai-musicplayer-${version}-win-portable.zip
 electronDownload:
   mirror: https://npmmirror.com/mirrors/electron/
+afterPack: ./scripts/afterPackNoAsar.js
