@@ -161,7 +161,9 @@ match_score = {
 }
 ```
 
-总权重 = 1.50
+总权重 = 1.50（like 向量）；skip 向量仅用 artist(0.5) + genre(0.3) = 0.80，跳过惩罚范围 [0, 1.5]
+
+> **设计说明：** skip 信号只需要反映"避开什么艺术家/流派"，mood/lang/decade/BPM/energy/danceability 等细粒度维度对 skip 判定干扰较大，因此 skip 向量仅用 2 维。skip_score 乘以 α=1.5 补偿维度差异，保证 skip 全匹配惩罚为 -1.5，与 like 全匹配 +1.0 相抗衡。
 
 总得分归一化：
 
@@ -355,7 +357,7 @@ const CACHE_MAX_USERS = 100;            // 最大缓存用户数
 
 ## 8. 变更记录
 
-### 2026-04-26（四次审查后）
+### 2026-04-26（五次审查后）
 
 #### Bug 修复
 - 🔧 **mergePreferenceVectors avg 死代码** - return 语句之后代码不执行，改为 const merged = {...} 后计算再返回
