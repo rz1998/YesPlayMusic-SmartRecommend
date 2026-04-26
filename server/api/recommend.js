@@ -495,16 +495,16 @@ function computeSimilarity(vec1, vec2) {
   }
   
   // BPM similarity
-  if (vec1.avgBpm && vec2.bpm) {
-    const bpmDiff = Math.abs(vec1.avgBpm - vec2.bpm);
+  if (vec1.bpm && vec2.bpm) {
+    const bpmDiff = Math.abs(vec1.bpm - vec2.bpm);
     const bpmSim = Math.max(0, 1 - bpmDiff / 50);
     score += bpmSim * 0.3;
     weights += 0.3;
   }
   
   // Duration similarity
-  if (vec1.avgDuration && vec2.duration) {
-    const durDiff = Math.abs(vec1.avgDuration - vec2.duration);
+  if (vec1.duration && vec2.duration) {
+    const durDiff = Math.abs(vec1.duration - vec2.duration);
     const durSim = Math.max(0, 1 - durDiff / 120);
     score += durSim * 0.2;
     weights += 0.2;
