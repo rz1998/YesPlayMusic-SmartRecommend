@@ -1,6 +1,6 @@
 # 智能推荐系统 - 算法规格说明书
 
-> 最后更新：2026-04-23
+> 最后更新：2026-04-26
 
 ---
 
@@ -261,6 +261,7 @@ ai-musicplayer/
 | `/api/event/play` | POST | userId, songId, duration, completed | 记录播放 |
 | `/api/event/skip` | POST | userId, songId, skipTime, songDuration | 记录跳过 |
 | `/api/event/like` | POST | userId, songId | 点赞/取消点赞（toggle）|
+| `/api/event/unlike` | POST | userId, songId | 主动取消点赞 |
 | `/api/event/liked/:userId` | GET | userId, songIds（query）| 批量查询点赞状态 |
 | `/api/event/history/:userId` | GET | userId, type, limit | 事件历史 |
 
@@ -353,6 +354,30 @@ const CACHE_MAX_USERS = 100;            // 最大缓存用户数
 ---
 
 ## 8. 变更记录
+
+### 2026-04-26（四次审查后）
+
+#### Bug 修复
+- 🔧 **mergePreferenceVectors avg 死代码** - return 语句之后代码不执行，改为 const merged = {...} 后计算再返回
+- 🔧 **finalRecommendations 未定义** - scoredCandidates.slice 前未定义变量，提前 let 声明
+- 🔧 **Player 单曲循环双重 scrobble** - _replaceCurrentTrack 新增 skipScrobble 参数，repeat-one 时跳过第二次 scrobble
+- 🔧 **recommendEngine playInfo 闭包 undefined** - filter+map 合并为单次遍历解决变量作用域问题
+- 🔧 **自然结束时 handleTrackChange 双重 recordPlay** - 添加 trigger 参数区分手动切歌和自然结束，避免与 Player.js _scrobble 重复记录
+
+#### 中等修复
+- 🔧 **Cache stampede 防护** - cache.js 新增 isComputing/waitForComputation/setComputing，并发请求同一用户时排队等待
+- 🔧 **/debug 端点生产环境暴露** - NODE_ENV=production 时返回 403；所有 events API 添加 userId 长度校验（最长128字符）
+- 🔧 **sync-song 参数无校验** - songId 必填 + 字符串长度截断防注入
+- 🔧 **并发 like 重复记录** - /like toggle 改为 DELETE + INSERT，保证同一 user+song 只有一条 like 事件
+
+#### 清理
+- 🔧 **recommendEngine.js 死代码** - 删除从未使用的本地推荐引擎（src/utils/recommendEngine.js）
+- 🔧 **previousTrackId/previousTrackDuration 误用** - 移除冗余 data 字段，改用 oldTrack.id !== newTrack.id 直接判断
+
+#### 新增功能
+- ✅ **DELETE + INSERT 防并发** - like 事件原子操作，删除旧记录再插入新记录
+- ✅ **Cache stampede 保护** - 同一用户并发请求时，第二个请求等待第一个请求的计算结果
+- ✅ **并发 like 防护** - deleteUserSongEvents 辅助函数，原子性删除同类事件
 
 ### 2026-04-23（六次审查后）
 
