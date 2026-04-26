@@ -51,7 +51,7 @@ export default {
 
         // If there was a previous track and it changed
         if (this.previousTrackId && this.previousTrackId !== newTrack.id) {
-          this.handleTrackChange(newTrack, oldTrack);
+          this.handleTrackChange(newTrack, oldTrack, 'songChange');
         }
 
         this.previousTrackId = newTrack.id;
@@ -74,7 +74,7 @@ export default {
     this.stopListenTimer();
   },
   methods: {
-    handleTrackChange(newTrack, oldTrack) {
+    handleTrackChange(newTrack, oldTrack, trigger = 'unknown') {
       if (!oldTrack || !oldTrack.id) return;
 
       // Finalize listen duration
@@ -95,12 +95,17 @@ export default {
       if (isSkip) {
         // Record skip with listen duration info for dynamic skip penalty calculation
         this.onSkip(oldTrack, playedDuration, songDuration);
-      } else if (playedDuration > this.skipThreshold) {
-        // Record as completed play
-        const completed =
-          songDuration > 0 && playedDuration >= songDuration * 0.7;
-        this.recordPlay(oldTrack.id, playedDuration, completed);
+      } else if (trigger === 'songChange') {
+        // Only record play on manual song change (skip or next/prev).
+        // On natural song end, Player.js _scrobble already handles the play record,
+        // so we skip here to avoid double-recording.
+        if (playedDuration > this.skipThreshold) {
+          const completed =
+            songDuration > 0 && playedDuration >= songDuration * 0.7;
+          this.recordPlay(oldTrack.id, playedDuration, completed);
+        }
       }
+      // trigger === 'naturalEnd' → skip, let Player.js _scrobble handle it
     },
 
     // Start listening timer
