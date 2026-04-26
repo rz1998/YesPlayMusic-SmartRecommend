@@ -26,22 +26,6 @@ function getCachedRecommendations(userId) {
   return null;
 }
 
-/**
- * Get or create a pending computation lock.
- * If another request is already computing for this user, return its promise.
- * Callers should await the returned promise then call `releaseLock(userId)`.
- */
-function acquireLock(userId) {
-  if (pendingComputations.has(userId)) {
-    return pendingComputations.get(userId); // reuse in-flight promise
-  }
-  // Placeholder that callers replace with their actual promise
-  let release;
-  const p = new Promise(resolve => { release = resolve; });
-  pendingComputations.set(userId, p);
-  return { promise: p, release: () => { pendingComputations.delete(userId); release(); } };
-}
-
 function setCachedRecommendations(userId, data) {
   enforceCacheLimit();
   recommendationCache.set(userId, { data, timestamp: Date.now() });

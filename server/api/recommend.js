@@ -161,6 +161,34 @@ router.get('/', async (req, res) => {
       .sort((a, b) => b.score - a.score);
     
     // 如果候选池为空或推荐结果为空，但用户有喜欢歌曲 → 返回最近同步的歌曲作为降级
+    let finalRecommendations = scoredCandidates.slice(0, parseInt(limit));
+    if (finalRecommendations.length === 0 && likedSongIds.length > 0) {
+      // 降级：用最近同步的歌曲（排除已喜欢/已跳过）
+      const fallbackCandidates = db.getAllSongs(50)
+        .filter(s => {
+          const sid = String(s.songId);
+          return !likedSongIds.includes(sid) &&
+                 !skippedSongIds.includes(sid) &&
+                 !playedSongIds.includes(sid);
+        });
+      finalRecommendations = fallbackCandidates.map(song => ({
+        id: song.songId,
+        name: song.name || song.songName,
+        artist: song.artistName,
+        album: song.albumName,
+        duration: song.duration,
+        genre: song.genre,
+        mood: song.mood,
+        language: song.language,
+        energy: song.energy,
+        score: 0,
+        likeScore: 0,
+        skipScore: 0,
+        _fallback: true,
+      }));
+      console.log(`⚠️ No candidates from DB, returning ${finalRecommendations.length} fallback songs`);
+    }
+
     const result = {
       recommendations: finalRecommendations,
       meta: {
@@ -331,7 +359,7 @@ function mergePreferenceVectors(v1, v2) {
     return result;
   }
   
-  return {
+  const merged = {
     artistFreq: mergeFreqMap(v1.artistFreq, v2.artistFreq),
     genreFreq: mergeFreqMap(v1.genreFreq, v2.genreFreq),
     moodFreq: mergeFreqMap(v1.moodFreq, v2.moodFreq),
@@ -344,18 +372,20 @@ function mergePreferenceVectors(v1, v2) {
     count: v1.count + v2.count,
   };
 
-  // 重新计算平均值（merge 后 count>0 才能计算）
-  if (result.count > 0) {
-    result.avgBpm = result.totalBpm / result.count;
-    result.avgDuration = result.totalDuration / result.count;
-    result.avgEnergy = result.totalEnergy / result.count;
-    result.avgDanceability = result.totalDanceability / result.count;
+  // 重新计算平均值
+  if (merged.count > 0) {
+    merged.avgBpm = merged.totalBpm / merged.count;
+    merged.avgDuration = merged.totalDuration / merged.count;
+    merged.avgEnergy = merged.totalEnergy / merged.count;
+    merged.avgDanceability = merged.totalDanceability / merged.count;
   } else {
-    result.avgBpm = 0;
-    result.avgDuration = 0;
-    result.avgEnergy = 0;
-    result.avgDanceability = 0;
+    merged.avgBpm = 0;
+    merged.avgDuration = 0;
+    merged.avgEnergy = 0;
+    merged.avgDanceability = 0;
   }
+
+  return merged;
 }
 
 // Helper: Compute preference match score

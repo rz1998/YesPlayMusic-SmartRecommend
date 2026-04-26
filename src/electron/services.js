@@ -7,7 +7,9 @@ import { app } from 'electron';
 
 export async function startNeteaseMusicApi() {
   // Let user know that the service is starting
-  console.log(`${clc.redBright('[NetEase API]')} initiating NCM API on port 10754`);
+  console.log(
+    `${clc.redBright('[NetEase API]')} initiating NCM API on port 10754`
+  );
 
   // Load the NCM API.
   try {
@@ -15,9 +17,14 @@ export async function startNeteaseMusicApi() {
       port: 10754,
       moduleDefs: require('../ncmModDef'),
     });
-    console.log(`${clc.greenBright('[NetEase API]')} NCM API started successfully`);
+    console.log(
+      `${clc.greenBright('[NetEase API]')} NCM API started successfully`
+    );
   } catch (err) {
-    console.error(`${clc.redBright('[NetEase API]')} failed to start:`, err.message);
+    console.error(
+      `${clc.redBright('[NetEase API]')} failed to start:`,
+      err.message
+    );
     console.error(`${clc.redBright('[NetEase API]')} Full error:`, err);
   }
 }
@@ -27,7 +34,11 @@ let recommenderServer = null;
 export function startRecommenderServer() {
   if (recommenderServer) return; // Already running
 
-  console.log(`${clc.greenBright('[Recommender]')} starting recommendation server on port 3001`);
+  console.log(
+    `${clc.greenBright(
+      '[Recommender]'
+    )} starting recommendation server on port 3001`
+  );
 
   // Get the server directory path
   const isDev = !app.isPackaged;
@@ -42,20 +53,27 @@ export function startRecommenderServer() {
     env: { ...process.env, PORT: '3001' },
   });
 
-  recommenderServer.stdout.on('data', (data) => {
-    console.log(`${clc.greenBright('[Recommender]')} ${data.toString().trim()}`);
+  recommenderServer.stdout.on('data', data => {
+    console.log(
+      `${clc.greenBright('[Recommender]')} ${data.toString().trim()}`
+    );
   });
 
-  recommenderServer.stderr.on('data', (data) => {
-    console.error(`${clc.greenBright('[Recommender]')} ${data.toString().trim()}`);
+  recommenderServer.stderr.on('data', data => {
+    console.error(
+      `${clc.greenBright('[Recommender]')} ${data.toString().trim()}`
+    );
   });
 
-  recommenderServer.on('error', (err) => {
-    console.error(`${clc.greenBright('[Recommender]')} failed to start:`, err.message);
+  recommenderServer.on('error', err => {
+    console.error(
+      `${clc.greenBright('[Recommender]')} failed to start:`,
+      err.message
+    );
     recommenderServer = null;
   });
 
-  recommenderServer.on('exit', (code) => {
+  recommenderServer.on('exit', code => {
     console.log(`${clc.greenBright('[Recommender]')} exited with code ${code}`);
     recommenderServer = null;
   });

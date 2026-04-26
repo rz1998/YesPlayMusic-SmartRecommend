@@ -668,7 +668,12 @@ export default class {
     this._scrobble(this._currentTrack, 0, true);
     if (!this.isPersonalFM && this.repeatMode === 'one') {
       // skipScrobble=true: _nextTrackCallback already scrobbled completed=true
-      this._replaceCurrentTrack(this.currentTrackID, true, UNPLAYABLE_CONDITION.PLAY_NEXT_TRACK, true);
+      this._replaceCurrentTrack(
+        this.currentTrackID,
+        true,
+        UNPLAYABLE_CONDITION.PLAY_NEXT_TRACK,
+        true
+      );
     } else {
       this._playNextTrack(this.isPersonalFM);
     }
