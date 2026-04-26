@@ -64,17 +64,23 @@ async function start() {
     const START_PORT = parseInt(process.env.PORT || '3001', 10);
     const PORT = await findAvailablePort(START_PORT);
 
-    app.listen(PORT, '0.0.0.0', () => {
+    const server = app.listen(PORT, '0.0.0.0', () => {
       console.log(`🎵 ai-musicplayer Recommendation Server running on port ${PORT}`);
-      // Signal parent process (start.sh) that we're ready
       if (process.send) {
         process.send({ type: 'ready', port: PORT });
       }
     });
+    return server;
   } catch (error) {
     console.error('Failed to start server:', error);
     process.exit(1);
   }
 }
 
-start();
+// Export app for testing (don't auto-start when imported as module)
+module.exports = app;
+
+// Auto-start only when run directly (not when imported as module)
+if (require.main === module) {
+  start();
+}

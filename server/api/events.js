@@ -89,21 +89,22 @@ router.get('/history/:userId', (req, res) => {
 router.get('/liked/:userId', (req, res) => {
   const { userId } = req.params;
   const { songIds } = req.query;  // comma-separated list of songIds
-  
+
   if (!userId) {
     return res.status(400).json({ error: 'userId is required' });
   }
-  
-  if (!songIds) {
-    return res.json({ likedSongIds: [] });
-  }
-  
-  const ids = songIds.split(',').map(id => id.trim());
+
   const likedSongIds = db.getUserLikedSongs(userId, 1000);
-  
+
+  if (!songIds) {
+    // No songIds specified → return all liked song IDs for this user
+    return res.json({ likedSongIds });
+  }
+
   // Return which of the requested songs are liked
+  const ids = songIds.split(',').map(id => id.trim());
   const liked = ids.filter(id => likedSongIds.includes(String(id)));
-  
+
   res.json({ likedSongIds: liked });
 });
 

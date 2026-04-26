@@ -8,8 +8,9 @@ const fs = require('fs');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 
-const DATA_DIR = path.join(__dirname, '../data');
-const DB_FILE = path.join(DATA_DIR, 'recommender.db');
+const DEFAULT_DATA_DIR = path.join(__dirname, '../data');
+const DATA_DIR = process.env.RECOMMENDER_DB_DIR || DEFAULT_DATA_DIR;
+const DB_FILE = path.join(DATA_DIR, process.env.RECOMMENDER_DB_FILE || 'recommender.db');
 
 // Ensure data directory exists
 if (!fs.existsSync(DATA_DIR)) {
@@ -484,6 +485,7 @@ module.exports = {
   deleteUserSongEvents,
   getUserPlayedSongs,
   getUserLikedSongs,
+  getPartialPlayedSongs,
   getUserSkippedSongs,
   getUserSkippedSongsWithDetails,
   saveSong,
