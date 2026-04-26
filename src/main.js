@@ -14,7 +14,7 @@ import '@/assets/css/nprogress.css';
 
 window.resetApp = () => {
   localStorage.clear();
-  indexedDB.deleteDatabase('yesplaymusic');
+  indexedDB.deleteDatabase('ai-musicplayer');
   document.cookie.split(';').forEach(function (c) {
     document.cookie = c
       .replace(/^ +/, '')

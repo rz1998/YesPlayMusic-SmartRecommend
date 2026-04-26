@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Windows build script for YesPlayMusic
+ * Windows build script for ai-musicplayer
  * Handles the complex asar packaging issue where server/ needs to be in app.asar.unpacked/
  */
 const { execSync, spawnSync } = require('child_process');
@@ -68,9 +68,9 @@ if (!hasServer && hasBackground) {
 
 // Step 6: Create portable zip
 console.log('\n=== Step 6: Create portable zip ===');
-const portableZip = path.join(projectRoot, 'dist_electron/YesPlayMusic-0.5.22-win-portable.zip');
+const portableZip = path.join(projectRoot, 'dist_electron/ai-musicplayer-0.5.22-win-portable.zip');
 fs.unlinkSync(portableZip);
-execSync(`cd "${path.join(projectRoot, 'dist_electron')}" && zip -qr "YesPlayMusic-0.5.22-win-portable.zip" win-unpacked/`, { stdio: 'inherit' });
+execSync(`cd "${path.join(projectRoot, 'dist_electron')}" && zip -qr "ai-musicplayer-0.5.22-win-portable.zip" win-unpacked/`, { stdio: 'inherit' });
 console.log('Done.');
 
 // Step 7: Create NSIS installer
@@ -78,22 +78,22 @@ console.log('\n=== Step 7: Create NSIS installer ===');
 // Use the system NSIS
 const nsisScript = `
 !include "MUI2.nsh"
-Name "YesPlayMusic"
-OutFile "dist_electron/YesPlayMusic-0.5.22-win-setup.exe"
-InstallDir "$PROGRAMFILES\\YesPlayMusic"
+Name "ai-musicplayer"
+OutFile "dist_electron/ai-musicplayer-0.5.22-win-setup.exe"
+InstallDir "$PROGRAMFILES\\ai-musicplayer"
 Section
   SetOutPath "$INSTDIR"
   File /r "dist_electron/win-unpacked/*.*"
-  CreateDirectory "$SMPROGRAMS\\YesPlayMusic"
-  CreateShortcut "$SMPROGRAMS\\YesPlayMusic\\YesPlayMusic.lnk" "$INSTDIR\\YesPlayMusic.exe"
-  CreateShortcut "$SMPROGRAMS\\YesPlayMusic\\Uninstall.lnk" "$INSTDIR\\Uninstall.exe"
+  CreateDirectory "$SMPROGRAMS\\ai-musicplayer"
+  CreateShortcut "$SMPROGRAMS\\ai-musicplayer\\ai-musicplayer.lnk" "$INSTDIR\\ai-musicplayer.exe"
+  CreateShortcut "$SMPROGRAMS\\ai-musicplayer\\Uninstall.lnk" "$INSTDIR\\Uninstall.exe"
   WriteUninstaller "$INSTDIR\\Uninstall.exe"
 SectionEnd
 `;
 run('makensis', ['-'], { input: nsisScript, ignoreExit: true });
 
 console.log('\n=== Build complete! ===');
-console.log('Portable: dist_electron/YesPlayMusic-0.5.22-win-portable.zip');
+console.log('Portable: dist_electron/ai-musicplayer-0.5.22-win-portable.zip');
 const zipExists = fs.existsSync(portableZip);
 console.log(`  Status: ${zipExists ? 'OK' : 'MISSING'}`);
 if (zipExists) {

@@ -44,19 +44,19 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: YesPlayMusic-mac
+          name: ai-musicplayer-mac
           path: dist_electron/*-universal.dmg
           if-no-files-found: ignore
 
       - uses: actions/upload-artifact@v4
         with:
-          name: YesPlayMusic-win
+          name: ai-musicplayer-win
           path: dist_electron/*Setup*.exe
           if-no-files-found: ignore
 
       - uses: actions/upload-artifact@v4
         with:
-          name: YesPlayMusic-linux
+          name: ai-musicplayer-linux
           path: dist_electron/*.AppImage
           if-no-files-found: ignore
 
@@ -81,7 +81,7 @@ jobs:
           if [ -z "$release_id" ]; then
             echo "Creating release ${{ github.ref_name }}..."
             gh release create ${{ github.ref_name }} \
-              --title 'YesPlayMusic ${{ github.ref_name }}' \
+              --title 'ai-musicplayer ${{ github.ref_name }}' \
               --notes 'Automatic release from GitHub Actions' \
               --repo ${{ github.repository }}
             release_id=$(gh api repos/${{ github.repository }}/releases/tags/${{ github.ref_name }} --jq '.id')
@@ -96,7 +96,7 @@ jobs:
           
           # 上传所有安装包文件
           echo "Uploading artifacts..."
-          for f in YesPlayMusic-win/*.exe YesPlayMusic-mac/*.dmg YesPlayMusic-linux/*.AppImage; do
+          for f in ai-musicplayer-win/*.exe ai-musicplayer-mac/*.dmg ai-musicplayer-linux/*.AppImage; do
             if [ -f "$f" ]; then
               echo "  Uploading $f..."
               gh release upload ${{ github.ref_name }} "$f" --repo ${{ github.repository }} || true

@@ -1,5 +1,5 @@
 <div align="center">
-	<a href="http://go.warp.dev/YesPlayMusic" target="_blank">
+	<a href="http://go.warp.dev/ai-musicplayer" target="_blank">
 		<sup>Special thanks to:</sup>
 		<br>
 		<img alt="Warp sponsorship" width="400" src="https://github.com/warpdotdev/brand-assets/blob/main/Github/Sponsor/Warp-Github-LG-03.png?raw=true">
@@ -19,7 +19,7 @@
   <a href="https://music.qier222.com" target="blank">
     <img src="images/logo.png" alt="Logo" width="156" height="156">
   </a>
-  <h2 align="center" style="font-weight: 600">YesPlayMusic</h2>
+  <h2 align="center" style="font-weight: 600">ai-musicplayer</h2>
 
   <p align="center">
     高颜值的第三方网易云播放器
@@ -36,7 +36,7 @@
 
 ---
 
-# YesPlayMusic - 智能推荐版
+# ai-musicplayer - 智能推荐版
 
 ---
 
@@ -44,9 +44,9 @@
 
 ### 项目起源
 
-本项目源自 **YesPlayMusic**（原项目地址：https://github.com/qier222/YesPlayMusic），由 [@qier222](https://github.com/qier222) 开发的高颜值第三方网易云音乐播放器。
+本项目源自 **ai-musicplayer**（原项目地址：https://github.com/qier222/ai-musicplayer），由 [@qier222](https://github.com/qier222) 开发的高颜值第三方网易云音乐播放器。
 
-YesPlayMusic 是一个开源的网易云音乐客户端，使用 Vue.js 开发，提供美观的界面和丰富的功能，支持 Windows、macOS、Linux 多平台。
+ai-musicplayer 是一个开源的网易云音乐客户端，使用 Vue.js 开发，提供美观的界面和丰富的功能，支持 Windows、macOS、Linux 多平台。
 
 ### 本项目扩展
 
@@ -184,8 +184,8 @@ const skipWeight = -1 * (1 - listenRatio);
 
 ```bash
 # 1. 克隆本仓库
-git clone --recursive https://github.com/rz1998/YesPlayMusic-SmartRecommend.git
-cd YesPlayMusic-SmartRecommend
+git clone --recursive https://github.com/rz1998/ai-musicplayer.git
+cd ai-musicplayer
 
 # 2. 创建版本标签并推送
 git tag v0.4.11
@@ -207,14 +207,14 @@ git push origin v0.4.11
 
 **方式一：下载安装包（推荐）**
 
-1. 访问 [Releases 页面](https://github.com/rz1998/YesPlayMusic-SmartRecommend/releases)
+1. 访问 [Releases 页面](https://github.com/rz1998/ai-musicplayer/releases)
 2. 下载 Windows 版本安装包（.exe 或 .msi）
 3. 双击安装即可
 
 **方式二：Scoop 安装**
 
 ```bash
-scoop install extras/yesplaymusic
+scoop install extras/ai-musicplayer
 ```
 
 **方式三：从源码打包**
@@ -225,8 +225,8 @@ scoop install extras/yesplaymusic
 # Yarn: npm install -g yarn
 
 # 2. 克隆仓库
-git clone --recursive https://github.com/rz1998/YesPlayMusic-SmartRecommend.git
-cd YesPlayMusic-SmartRecommend
+git clone --recursive https://github.com/rz1998/ai-musicplayer.git
+cd ai-musicplayer
 
 # 3. 安装依赖
 yarn install
@@ -244,10 +244,10 @@ yarn electron:build --windows nsis:arm64    # Windows ARM
 
 ```bash
 # 构建镜像
-docker build -t yesplaymusic .
+docker build -t ai-musicplayer .
 
 # 运行容器
-docker run -d --name YesPlayMusic -p 80:80 yesplaymusic
+docker run -d --name ai-musicplayer -p 80:80 ai-musicplayer
 ```
 
 ---
@@ -256,14 +256,14 @@ docker run -d --name YesPlayMusic -p 80:80 yesplaymusic
 
 **方式一：下载安装包（推荐）**
 
-1. 访问 [Releases 页面](https://github.com/rz1998/YesPlayMusic-SmartRecommend/releases)
+1. 访问 [Releases 页面](https://github.com/rz1998/ai-musicplayer/releases)
 2. 下载 macOS 版本安装包（.dmg）
 3. 拖动到应用程序文件夹即可
 
 **方式二：Homebrew 安装**
 
 ```bash
-brew install --cask yesplaymusic
+brew install --cask ai-musicplayer
 ```
 
 **方式三：从源码打包**
@@ -274,8 +274,8 @@ brew install --cask yesplaymusic
 # Yarn: npm install -g yarn
 
 # 2. 克隆仓库
-git clone --recursive https://github.com/rz1998/YesPlayMusic-SmartRecommend.git
-cd YesPlayMusic-SmartRecommend
+git clone --recursive https://github.com/rz1998/ai-musicplayer.git
+cd ai-musicplayer
 
 # 3. 安装依赖
 yarn install
@@ -295,7 +295,7 @@ yarn electron:build --macos dir:x64      # macOS x64 (Intel)
 
 **方式一：下载安装包（推荐）**
 
-1. 访问 [Releases 页面](https://github.com/rz1998/YesPlayMusic-SmartRecommend/releases)
+1. 访问 [Releases 页面](https://github.com/rz1998/ai-musicplayer/releases)
 2. 下载对应架构的安装包（.deb, .AppImage 等）
 3. 使用包管理器安装
 
@@ -303,10 +303,10 @@ yarn electron:build --macos dir:x64      # macOS x64 (Intel)
 
 ```bash
 # 构建镜像
-docker build -t yesplaymusic .
+docker build -t ai-musicplayer .
 
 # 运行容器
-docker run -d --name YesPlayMusic -p 80:80 yesplaymusic
+docker run -d --name ai-musicplayer -p 80:80 ai-musicplayer
 ```
 
 **方式三：从源码打包**
@@ -317,8 +317,8 @@ docker run -d --name YesPlayMusic -p 80:80 yesplaymusic
 # Yarn: npm install -g yarn
 
 # 2. 克隆仓库
-git clone --recursive https://github.com/rz1998/YesPlayMusic-SmartRecommend.git
-cd YesPlayMusic-SmartRecommend
+git clone --recursive https://github.com/rz1998/ai-musicplayer.git
+cd ai-musicplayer
 
 # 3. 安装依赖
 yarn install
@@ -357,15 +357,15 @@ yarn electron:build --linux rpm            # Fedora/RHEL
 #### 宝塔面板 Docker 部署
 
 1. 安装宝塔面板
-2. 在 Docker 应用商店找到 YesPlayMusic
+2. 在 Docker 应用商店找到 ai-musicplayer
 3. 点击安装，配置域名和端口即可
 
 #### 手动部署到服务器
 
 ```bash
 # 1. 克隆仓库
-git clone --recursive https://github.com/qier222/YesPlayMusic.git
-cd YesPlayMusic
+git clone --recursive https://github.com/qier222/ai-musicplayer.git
+cd ai-musicplayer
 
 # 2. 安装依赖
 yarn install
@@ -417,7 +417,7 @@ cd server && npm start
 
 ## 全新版本
 
-全新 2.0 Alpha 测试版已发布，欢迎前往 [Releases](https://github.com/qier222/YesPlayMusic/releases) 页面下载。
+全新 2.0 Alpha 测试版已发布，欢迎前往 [Releases](https://github.com/qier222/ai-musicplayer/releases) 页面下载。
 当前版本将会进入维护模式，除重大 bug 修复外，不会再更新新功能。
 
 ## 最近更新 (2026-04-14)
@@ -462,7 +462,7 @@ cd server && npm start
 
 Electron 版本由 [@hawtim](https://github.com/hawtim) 和 [@qier222](https://github.com/qier222) 适配并维护，支持 macOS、Windows、Linux。
 
-访问本项目的 [Releases](https://github.com/qier222/YesPlayMusic/releases)
+访问本项目的 [Releases](https://github.com/qier222/ai-musicplayer/releases)
 页面下载安装包。
 
 - macOS 用户可以通过 Homebrew 来安装：`brew install --cask yesplaymusic`
@@ -520,7 +520,7 @@ Electron 版本由 [@hawtim](https://github.com/hawtim) 和 [@qier222](https://g
 2. 克隆本仓库
 
 ```sh
-git clone --recursive https://github.com/qier222/YesPlayMusic.git
+git clone --recursive https://github.com/qier222/ai-musicplayer.git
 ```
 
 3. 安装依赖
@@ -532,7 +532,7 @@ yarn install
 
 4. （可选）使用 Nginx 反向代理 API，将 API 路径映射为 `/api`，如果 API 和网页不在同一个域名下的话（跨域），会有一些 bug。
 
-5. 复制 `/.env.example` 文件为 `/.env`，修改里面 `VUE_APP_NETEASE_API_URL` 的值为网易云 API 地址。本地开发的话可以填写 API 地址为 `http://localhost:3000`，YesPlayMusic 地址为 `http://localhost:8080`。如果你使用了反向代理 API，可以填写 API 地址为 `/api`。
+5. 复制 `/.env.example` 文件为 `/.env`，修改里面 `VUE_APP_NETEASE_API_URL` 的值为网易云 API 地址。本地开发的话可以填写 API 地址为 `http://localhost:3000`，ai-musicplayer 地址为 `http://localhost:8080`。如果你使用了反向代理 API，可以填写 API 地址为 `/api`。
 
 ```
 VUE_APP_NETEASE_API_URL=http://localhost:3000
@@ -552,7 +552,7 @@ yarn run build
 
 2. 安装后登录宝塔面板，在左侧导航栏中点击 Docker，首次进入会提示安装 Docker 服务，点击立即安装，按提示完成安装
 
-3. 安装完成后在应用商店中找到 YesPlayMusic，点击安装，配置域名、端口等基本信息即可完成安装。
+3. 安装完成后在应用商店中找到 ai-musicplayer，点击安装，配置域名、端口等基本信息即可完成安装。
 
 4. 安装后在浏览器输入上一步骤设置的域名即可访问。
 
@@ -561,13 +561,13 @@ yarn run build
 1. 构建 Docker Image
 
 ```sh
-docker build -t yesplaymusic .
+docker build -t ai-musicplayer .
 ```
 
 2. 启动 Docker Container
 
 ```sh
-docker run -d --name YesPlayMusic -p 80:80 yesplaymusic
+docker run -d --name ai-musicplayer -p 80:80 ai-musicplayer
 ```
 
 3. Docker Compose 启动
@@ -576,7 +576,7 @@ docker run -d --name YesPlayMusic -p 80:80 yesplaymusic
 docker-compose up -d
 ```
 
-YesPlayMusic 地址为 `http://localhost`
+ai-musicplayer 地址为 `http://localhost`
 
 ## ⚙️ 部署至 Replit
 
@@ -585,7 +585,7 @@ YesPlayMusic 地址为 `http://localhost`
 2. 在 Replit shell 中运行以下命令
 
 ```sh
-bash <(curl -s -L https://raw.githubusercontent.com/qier222/YesPlayMusic/main/install-replit.sh)
+bash <(curl -s -L https://raw.githubusercontent.com/qier222/ai-musicplayer/main/install-replit.sh)
 ```
 
 3. 首次运行成功后，只需点击绿色按钮 `Run` 即可再次运行
@@ -603,7 +603,7 @@ cd /home/runner/${REPL_SLUG}/music && yarn install && yarn run build
 1. 打包 Electron 需要用到 Node.js 和 Yarn。可前往 [Node.js 官网](https://nodejs.org/zh-cn/) 下载安装包。安装 Node.js
    后可在终端里执行 `npm install -g yarn` 来安装 Yarn。
 
-2. 使用 `git clone --recursive https://github.com/qier222/YesPlayMusic.git` 克隆本仓库到本地。
+2. 使用 `git clone --recursive https://github.com/qier222/ai-musicplayer.git` 克隆本仓库到本地。
 
 3. 使用 `yarn install` 安装项目依赖。
 
@@ -647,7 +647,7 @@ yarn netease_api:run
 
 ## ☑️ Todo
 
-查看 Todo 请访问本项目的 [Projects](https://github.com/qier222/YesPlayMusic/projects/1)
+查看 Todo 请访问本项目的 [Projects](https://github.com/qier222/ai-musicplayer/projects/1)
 
 欢迎提 Issue 和 Pull request。
 

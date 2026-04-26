@@ -43,8 +43,8 @@ const excludeSaveKeys = [
 
 function setTitle(track) {
   document.title = track
-    ? `${track.name} · ${track.ar[0].name} - YesPlayMusic`
-    : 'YesPlayMusic';
+    ? `${track.name} · ${track.ar[0].name} - ai-musicplayer`
+    : 'ai-musicplayer';
   if (isCreateTray) {
     ipcRenderer?.send('updateTrayTooltip', document.title);
   }
@@ -102,8 +102,8 @@ export default class {
     // init
     this._init();
 
-    window.yesplaymusic = {};
-    window.yesplaymusic.player = this;
+    window.aimusicplayer = {};
+    window.aimusicplayer.player = this;
   }
 
   get repeatMode() {
@@ -493,9 +493,10 @@ export default class {
   _replaceCurrentTrack(
     id,
     autoplay = true,
-    ifUnplayableThen = UNPLAYABLE_CONDITION.PLAY_NEXT_TRACK
+    ifUnplayableThen = UNPLAYABLE_CONDITION.PLAY_NEXT_TRACK,
+    skipScrobble = false
   ) {
-    if (autoplay && this._currentTrack.name) {
+    if (autoplay && this._currentTrack.name && !skipScrobble) {
       this._scrobble(this.currentTrack, this._howler?.seek());
     }
     return getTrackDetail(id).then(data => {
@@ -666,7 +667,8 @@ export default class {
   _nextTrackCallback() {
     this._scrobble(this._currentTrack, 0, true);
     if (!this.isPersonalFM && this.repeatMode === 'one') {
-      this._replaceCurrentTrack(this.currentTrackID);
+      // skipScrobble=true: _nextTrackCallback already scrobbled completed=true
+      this._replaceCurrentTrack(this.currentTrackID, true, UNPLAYABLE_CONDITION.PLAY_NEXT_TRACK, true);
     } else {
       this._playNextTrack(this.isPersonalFM);
     }

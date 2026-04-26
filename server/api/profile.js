@@ -59,21 +59,24 @@ router.get('/profile/:userId', (req, res) => {
 router.post('/sync-song', (req, res) => {
   const { songId, userId, artistId, artistName, albumId, albumName, duration, bpm, genre, publishTime, name, songName } = req.body;
   
-  if (!songId) {
-    return res.status(400).json({ error: 'songId is required' });
+  // Input validation: songId is required and must be a non-empty string
+  if (!songId || typeof songId !== 'string' || songId.length > 64) {
+    return res.status(400).json({ error: 'Invalid songId' });
   }
+  // Sanitize string inputs to prevent injection
+  const sanitize = (val) => (typeof val === 'string' ? val.slice(0, 512) : val);
   
   db.saveSong({
     songId,
-    artistId,
-    artistName,
-    albumId,
-    albumName,
+    artistId: sanitize(artistId),
+    artistName: sanitize(artistName),
+    albumId: sanitize(albumId),
+    albumName: sanitize(albumName),
     duration,
     bpm,
-    genre,
+    genre: sanitize(genre),
     publishTime,
-    name: name || songName,
+    name: sanitize(name || songName),
   });
   
   // Clear this user's cache since song features changed

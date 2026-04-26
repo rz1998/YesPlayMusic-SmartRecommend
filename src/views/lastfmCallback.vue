@@ -1,7 +1,7 @@
 <template>
   <div class="lastfm-callback">
     <div class="section-1">
-      <img src="/img/logos/yesplaymusic.png" />
+      <img src="/img/logos/ai-musicplayer.png" />
       <svg-icon icon-class="x"></svg-icon>
       <img src="/img/logos/lastfm.png" />
     </div>

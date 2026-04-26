@@ -38,8 +38,8 @@ jobs:
           # Find built artifacts
           ls -lh
           # Create portable zip if not already created by electron-builder
-          if [ ! -f "YesPlayMusic-${{ github.ref_name }}-win-portable.zip" ]; then
-            powershell -Command "Compress-Archive -Path 'win-unpacked\*' -DestinationPath 'YesPlayMusic-${{ github.ref_name }}-win-portable.zip' -Force"
+          if [ ! -f "ai-musicplayer-${{ github.ref_name }}-win-portable.zip" ]; then
+            powershell -Command "Compress-Archive -Path 'win-unpacked\*' -DestinationPath 'ai-musicplayer-${{ github.ref_name }}-win-portable.zip' -Force"
           fi
           ls -lh *.zip *.exe 2>/dev/null || true
 

@@ -1,4 +1,4 @@
-# YesPlayMusic 智能推荐系统后端
+# ai-musicplayer 智能推荐系统后端
 
 ## 功能特性
 

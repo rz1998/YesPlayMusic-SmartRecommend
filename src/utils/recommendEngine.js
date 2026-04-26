@@ -190,17 +190,16 @@ export function generateRecommendations(allSongs, count = 30) {
     return [];
   }
 
-  // 过滤并评分歌曲
+  // 过滤并评分歌曲（filter+map 合并为一次遍历，避免 playInfo 闭包问题）
   const scoredSongs = allSongs
-    .filter(song => {
-      // 排除已跳过的
-      if (data.skips.has(song.id)) return false;
-      // 排除已播放太多次的（避免重复）
-      const playInfo = data.plays[song.id];
-      if (playInfo && playInfo.count >= 10) return false;
-      return true;
-    })
     .map(song => {
+      // 排除已跳过的
+      if (data.skips.has(song.id)) return { song, score: -1 };
+
+      const playInfo = data.plays[song.id];
+      // 排除已播放太多次的（避免重复）
+      if (playInfo && playInfo.count >= 10) return { song, score: -1 };
+
       let score = 0;
 
       // 歌手匹配
@@ -236,7 +235,14 @@ export function generateRecommendations(allSongs, count = 30) {
 
 // 辅助函数：从缓存获取歌曲信息
 const songCache = new Map();
+const SONG_CACHE_MAX_SIZE = 2000;
+
 export function cacheSong(song) {
+  // Prevent unbounded growth: evict oldest entries when cache is full
+  if (songCache.size >= SONG_CACHE_MAX_SIZE) {
+    const oldestKey = songCache.keys().next().value;
+    songCache.delete(oldestKey);
+  }
   songCache.set(song.id, song);
 }
 

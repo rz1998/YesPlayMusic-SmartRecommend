@@ -150,7 +150,7 @@ export function createMenu(win, store) {
               {
                 role: 'window',
                 id: 'window',
-                label: 'YesPlayMusic',
+                label: 'ai-musicplayer',
                 type: 'checkbox',
                 checked: true,
                 click: () => {
@@ -174,7 +174,7 @@ export function createMenu(win, store) {
           click: async () => {
             const { shell } = require('electron');
             await shell.openExternal(
-              'https://github.com/rz1998/YesPlayMusic-SmartRecommend'
+              'https://github.com/rz1998/ai-musicplayer-SmartRecommend'
             );
           },
         },

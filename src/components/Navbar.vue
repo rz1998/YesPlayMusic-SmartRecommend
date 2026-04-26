@@ -158,7 +158,7 @@ export default {
       this.$router.push({ name: 'settings' });
     },
     toGitHub() {
-      window.open('https://github.com/rz1998/YesPlayMusic-SmartRecommend');
+      window.open('https://github.com/rz1998/ai-musicplayer-SmartRecommend');
     },
     toLogin() {
       if (process.env.IS_ELECTRON === true) {

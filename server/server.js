@@ -65,7 +65,7 @@ async function start() {
     const PORT = await findAvailablePort(START_PORT);
 
     app.listen(PORT, '0.0.0.0', () => {
-      console.log(`🎵 YesPlayMusic Recommendation Server running on port ${PORT}`);
+      console.log(`🎵 ai-musicplayer Recommendation Server running on port ${PORT}`);
       // Signal parent process (start.sh) that we're ready
       if (process.send) {
         process.send({ type: 'ready', port: PORT });

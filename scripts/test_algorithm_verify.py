@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-YesPlayMusic 推荐算法验证测试
+ai-musicplayer 推荐算法验证测试
 基于 docs/SMART_RECOMMEND.md 规格说明书
 验证算法实现与规格是否一致
 """

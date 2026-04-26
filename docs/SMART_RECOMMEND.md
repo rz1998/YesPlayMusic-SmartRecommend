@@ -206,7 +206,7 @@ dimension_score = Σ(match_i × weight_i) / Σ(weight_i)
 ## 4. 文件结构
 
 ```
-YesPlayMusic-SmartRecommend/
+ai-musicplayer/
 ├── start.sh                      # 一键启动脚本（前后端同时启动）
 ├── docs/
 │   └── SMART_RECOMMEND.md        # 本文档（算法规格 + 变更记录）

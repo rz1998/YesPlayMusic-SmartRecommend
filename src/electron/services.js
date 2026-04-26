@@ -7,13 +7,19 @@ import { app } from 'electron';
 
 export async function startNeteaseMusicApi() {
   // Let user know that the service is starting
-  console.log(`${clc.redBright('[NetEase API]')} initiating NCM API`);
+  console.log(`${clc.redBright('[NetEase API]')} initiating NCM API on port 10754`);
 
   // Load the NCM API.
-  await server.serveNcmApi({
-    port: 10754,
-    moduleDefs: require('../ncmModDef'),
-  });
+  try {
+    await server.serveNcmApi({
+      port: 10754,
+      moduleDefs: require('../ncmModDef'),
+    });
+    console.log(`${clc.greenBright('[NetEase API]')} NCM API started successfully`);
+  } catch (err) {
+    console.error(`${clc.redBright('[NetEase API]')} failed to start:`, err.message);
+    console.error(`${clc.redBright('[NetEase API]')} Full error:`, err);
+  }
 }
 
 let recommenderServer = null;

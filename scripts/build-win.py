@@ -33,7 +33,7 @@ def main():
 
     # Step 3: Recreate portable zip
     print('\n=== Step 3: Create portable zip ===')
-    zip_file = PROJECT / 'dist_electron/YesPlayMusic-0.5.22-win-portable.zip'
+    zip_file = PROJECT / 'dist_electron/ai-musicplayer-0.5.22-win-portable.zip'
     if zip_file.exists(): zip_file.unlink()
     run(['zip', '-qr', str(zip_file), 'win-unpacked/'],
         cwd=str(PROJECT / 'dist_electron'))
@@ -44,7 +44,7 @@ def main():
     # CRITICAL: Use --prepackaged so electron-builder uses the already-patched
     # win-unpacked/ (with server/ in asar) instead of rebuilding from bundled/
     print('\n=== Step 4: Build NSIS installer from patched win-unpacked ===')
-    nsis_file = PROJECT / 'dist_electron/YesPlayMusic-0.5.22-win-setup.exe'
+    nsis_file = PROJECT / 'dist_electron/ai-musicplayer-0.5.22-win-setup.exe'
     if nsis_file.exists(): nsis_file.unlink()
     run([
         'npx', 'electron-builder', '--win', 'nsis',
@@ -55,8 +55,8 @@ def main():
     print(f'✅ NSIS installer: {nsis_file} ({nsis_sz:.0f}MB)')
 
     print('\n=== Done! ===')
-    print(f'  dist_electron/YesPlayMusic-0.5.22-win-portable.zip')
-    print(f'  dist_electron/YesPlayMusic-0.5.22-win-setup.exe')
+    print(f'  dist_electron/ai-musicplayer-0.5.22-win-portable.zip')
+    print(f'  dist_electron/ai-musicplayer-0.5.22-win-setup.exe')
 
 if __name__ == '__main__':
     main()

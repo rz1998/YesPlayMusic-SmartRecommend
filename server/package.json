@@ -1,7 +1,7 @@
 {
-  "name": "yesplaymusic-recommender",
+  "name": "ai-musicplayer-recommender",
   "version": "1.0.0",
-  "description": "Smart recommendation backend for YesPlayMusic",
+  "description": "Smart recommendation backend for ai-musicplayer",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

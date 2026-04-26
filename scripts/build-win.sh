@@ -1,5 +1,5 @@
 #!/bin/bash
-# YesPlayMusic Windows Build Script
+# ai-musicplayer Windows Build Script
 # 1. Build webpack output to dist_electron/bundled/
 # 2. Copy server/ into dist_electron/bundled/server/
 # 3. Run electron-builder to package
@@ -54,12 +54,12 @@ fi
 
 echo ""
 echo "=== Step 6: Create portable zip ==="
-PORTABLE_ZIP="$PROJECT_ROOT/dist_electron/YesPlayMusic-0.5.22-win-portable.zip"
+PORTABLE_ZIP="$PROJECT_ROOT/dist_electron/ai-musicplayer-0.5.22-win-portable.zip"
 rm -f "$PORTABLE_ZIP"
 cd "$PROJECT_ROOT/dist_electron"
-zip -qr "YesPlayMusic-0.5.22-win-portable.zip" win-unpacked/
-echo "  Created: YesPlayMusic-0.5.22-win-portable.zip"
-ls -lh "YesPlayMusic-0.5.22-win-portable.zip"
+zip -qr "ai-musicplayer-0.5.22-win-portable.zip" win-unpacked/
+echo "  Created: ai-musicplayer-0.5.22-win-portable.zip"
+ls -lh "ai-musicplayer-0.5.22-win-portable.zip"
 
 echo ""
 echo "=== Build complete! ==="

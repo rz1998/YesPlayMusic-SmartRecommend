@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-YesPlayMusic Electron 接口测试脚本
+ai-musicplayer Electron 接口测试脚本
 测试打包后应用的各个接口是否正常
 """
 import subprocess
@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Optional
 
 PROJECT = Path(__file__).parent.parent
-EXE_PATH = PROJECT / "dist_electron/win-unpacked/YesPlayMusic.exe"
+EXE_PATH = PROJECT / "dist_electron/win-unpacked/ai-musicplayer.exe"
 
 
 class Colors:
@@ -47,15 +47,15 @@ class ElectronTester:
 
     def run(self):
         log("=" * 60, Colors.YELLOW)
-        log("YesPlayMusic Electron 接口测试", Colors.YELLOW)
+        log("ai-musicplayer Electron 接口测试", Colors.YELLOW)
         log("=" * 60, Colors.YELLOW)
 
         # ─── 1. 文件存在性检查 ───
         log("\n[1] 检查构建产物", Colors.YELLOW)
         asar = PROJECT / "dist_electron/win-unpacked/resources/app.asar"
         asar_unpacked = PROJECT / "dist_electron/win-unpacked/resources/app.asar.unpacked"
-        portable_zip = PROJECT / "dist_electron/YesPlayMusic-0.5.22-win-portable.zip"
-        nsis_exe = PROJECT / "dist_electron/YesPlayMusic-0.5.22-win-setup.exe"
+        portable_zip = PROJECT / "dist_electron/ai-musicplayer-0.5.22-win-portable.zip"
+        nsis_exe = PROJECT / "dist_electron/ai-musicplayer-0.5.22-win-setup.exe"
 
         self.check("app.asar 存在", asar.exists(), str(asar))
         self.check("app.asar.unpacked 目录存在", asar_unpacked.exists())

@@ -45,7 +45,7 @@ jobs:
       - name: Upload Windows exe
         uses: actions/upload-artifact@v4
         with:
-          name: YesPlayMusic-win-${{ github.run_number }}
+          name: ai-musicplayer-win-${{ github.run_number }}
           path: |
             dist_electron/win-unpacked/*.exe
             dist_electron/win-unpacked/*.dll
@@ -58,7 +58,7 @@ jobs:
       - name: Upload bundled app
         uses: actions/upload-artifact@v4
         with:
-          name: YesPlayMusic-win-bundled-${{ github.run_number }}
+          name: ai-musicplayer-win-bundled-${{ github.run_number }}
           path: dist_electron/bundled/
           if-no-files-found: error
 
@@ -77,7 +77,7 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ github.event.inputs.version }}
-          name: YesPlayMusic ${{ github.event.inputs.version }}
+          name: ai-musicplayer ${{ github.event.inputs.version }}
           files: artifacts/**/*.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

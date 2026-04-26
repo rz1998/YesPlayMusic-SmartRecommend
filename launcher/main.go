@@ -30,7 +30,7 @@ func main() {
 
 	// Find the actual Electron app
 	var appExe string
-	for _, name := range []string{"YesPlayMusic-app.exe", "YesPlayMusic.exe"} {
+	for _, name := range []string{"ai-musicplayer-app.exe", "ai-musicplayer.exe"} {
 		path := filepath.Join(launcherDir, name)
 		if _, err := os.Stat(path); err == nil {
 			appExe = path
@@ -38,7 +38,7 @@ func main() {
 		}
 	}
 	if appExe == "" {
-		log("[错误] 未找到 YesPlayMusic.exe")
+		log("[错误] 未找到 ai-musicplayer.exe")
 		return
 	}
 	log("[启动器] 找到主程序: " + filepath.Base(appExe))
@@ -49,7 +49,7 @@ func main() {
 	env = append(env, "NODE_ENV=production")
 
 	// Start the Electron app
-	log("[启动器] 启动 YesPlayMusic...")
+	log("[启动器] 启动 ai-musicplayer...")
 	cmd := exec.Command(appExe)
 	cmd.Env = env
 	cmd.Stdout = logFile
@@ -92,5 +92,5 @@ func main() {
 
 	// Wait for Electron app to exit
 	cmd.Wait()
-	log("[启动器] YesPlayMusic 已退出")
+	log("[启动器] ai-musicplayer 已退出")
 }

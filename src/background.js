@@ -160,7 +160,7 @@ class Background {
     expressApp.use('/api', expressProxy('http://127.0.0.1:10754'));
     expressApp.use('/player', (req, res) => {
       this.window.webContents
-        .executeJavaScript('window.yesplaymusic.player')
+        .executeJavaScript('window.aimusicplayer.player')
         .then(result => {
           res.send({
             currentTrack: result._isPersonalFM
@@ -189,7 +189,7 @@ class Background {
         isWindows ||
         (isLinux && this.store.get('settings.linuxEnableCustomTitlebar'))
       ),
-      title: 'YesPlayMusic',
+      title: 'ai-musicplayer',
       show: false,
       webPreferences: {
         webSecurity: false,
@@ -285,7 +285,7 @@ class Background {
         .then(result => {
           if (result.response === 0) {
             shell.openExternal(
-              'https://github.com/rz1998/YesPlayMusic-SmartRecommend/releases'
+              'https://github.com/rz1998/ai-musicplayer/releases'
             );
           }
         });
@@ -354,7 +354,7 @@ class Background {
           width: 800,
           height: 600,
           titleBarStyle: 'default',
-          title: 'YesPlayMusic',
+          title: 'ai-musicplayer',
           webPreferences: {
             webSecurity: false,
             nodeIntegration: true,

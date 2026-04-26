@@ -4,8 +4,15 @@ const db = require('../models/db');
 const cache = require('../models/cache');
 
 // Debug endpoint - shows user preference vectors for debugging
+// WARNING: exposes sensitive preference data - only enabled in development
 router.get('/debug', (req, res) => {
+  if (process.env.NODE_ENV === 'production') {
+    return res.status(403).json({ error: 'Debug endpoint disabled in production' });
+  }
   const { userId } = req.query;
+  if (!userId || typeof userId !== 'string' || userId.length > 128) {
+    return res.status(400).json({ error: 'Invalid userId' });
+  }
   const likedSongIds = db.getUserLikedSongs(userId, 1000);
   const likedSongs = db.getSongs(likedSongIds);
   const skippedSongIds = db.getUserSkippedSongs(userId, 100);
@@ -24,7 +31,7 @@ router.get('/debug', (req, res) => {
 });
 
 // Get personalized recommendations
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
   const { userId, limit = 20, excludePlayed = true, refresh } = req.query;
   
   if (!userId) {
@@ -45,7 +52,26 @@ router.get('/', (req, res) => {
     }
   }
 
-  try {
+  // Cache stampede protection: if another request is already computing for this user,
+  // wait for it instead of also computing (which would overload the DB)
+  if (cache.isComputing(userId)) {
+    console.log(`⏳ Request queued for user: ${userId} (cache stampede protection)`);
+    await cache.waitForComputation(userId);
+    // After waiting, the result should be cached — return it
+    const cached = cache.getCachedRecommendations(userId);
+    if (cached) {
+      const limited = cached.recommendations.slice(0, parseInt(limit));
+      return res.json({
+        recommendations: limited,
+        meta: { ...cached.meta, cached: true, waited: true },
+      });
+    }
+    // If still no cache (shouldn't happen normally), fall through to compute
+  }
+
+  // Wrap computation in a promise so concurrent requests wait for the same result
+  const computationPromise = (async () => {
+    try {
     // 1. Get liked songs (use higher limit to ensure complete exclusion)
     const likedSongIds = db.getUserLikedSongs(userId, 1000);
     const likedSongs = db.getSongs(likedSongIds);
@@ -135,34 +161,6 @@ router.get('/', (req, res) => {
       .sort((a, b) => b.score - a.score);
     
     // 如果候选池为空或推荐结果为空，但用户有喜欢歌曲 → 返回最近同步的歌曲作为降级
-    let finalRecommendations = scoredCandidates.slice(0, parseInt(limit));
-    if (finalRecommendations.length === 0 && likedSongIds.length > 0) {
-      // 降级：用最近同步的歌曲（排除已喜欢/已跳过）
-      const fallbackCandidates = db.getAllSongs(50)
-        .filter(s => {
-          const sid = String(s.songId);
-          return !likedSongIds.includes(sid) &&
-                 !skippedSongIds.includes(sid) &&
-                 !playedSongIds.includes(sid);
-        });
-      finalRecommendations = fallbackCandidates.map(song => ({
-        id: song.songId,
-        name: song.name || song.songName,
-        artist: song.artistName,
-        album: song.albumName,
-        duration: song.duration,
-        genre: song.genre,
-        mood: song.mood,
-        language: song.language,
-        energy: song.energy,
-        score: 0,
-        likeScore: 0,
-        skipScore: 0,
-        _fallback: true,
-      }));
-      console.log(`⚠️ No candidates from DB, returning ${finalRecommendations.length} fallback songs`);
-    }
-
     const result = {
       recommendations: finalRecommendations,
       meta: {
@@ -172,21 +170,34 @@ router.get('/', (req, res) => {
         playedCount: playedSongIds.length,
         skippedCount: skippedSongIds.length,
         cached: false,
+        fallback: finalRecommendations.length > 0 && scoredCandidates.length === 0,
       },
     };
     
     // Cache the full results
     cache.setCachedRecommendations(userId, result);
     console.log(`💾 Cached recommendations for user: ${userId}`);
-    
+
     // Return limited results
-    res.json({
+    return {
       recommendations: finalRecommendations.slice(0, parseInt(limit)),
       meta: result.meta,
-    });
-    
+    };
+
   } catch (error) {
     console.error('Recommendation error:', error);
+    throw error; // re-throw so finally below handles it
+  }
+  })(); // end async IIFE
+
+  // Register and wait for computation (auto-clears lock on settle via finally)
+  cache.setComputing(userId, computationPromise);
+  let response;
+  try {
+    response = await computationPromise;
+    res.json(response);
+  } catch (error) {
+    cache.clearComputing(userId); // ensure lock is cleared on error
     res.status(500).json({ error: 'Failed to generate recommendations' });
   }
 });
@@ -331,11 +342,20 @@ function mergePreferenceVectors(v1, v2) {
     totalEnergy: v1.totalEnergy + v2.totalEnergy,
     totalDanceability: v1.totalDanceability + v2.totalDanceability,
     count: v1.count + v2.count,
-    avgBpm: 0,  // 临时占位，调用方不依赖此字段
-    avgDuration: 0,
-    avgEnergy: 0,
-    avgDanceability: 0,
   };
+
+  // 重新计算平均值（merge 后 count>0 才能计算）
+  if (result.count > 0) {
+    result.avgBpm = result.totalBpm / result.count;
+    result.avgDuration = result.totalDuration / result.count;
+    result.avgEnergy = result.totalEnergy / result.count;
+    result.avgDanceability = result.totalDanceability / result.count;
+  } else {
+    result.avgBpm = 0;
+    result.avgDuration = 0;
+    result.avgEnergy = 0;
+    result.avgDanceability = 0;
+  }
 }
 
 // Helper: Compute preference match score

@@ -1,5 +1,5 @@
-appId: com.yesplaymusic.app
-productName: YesPlayMusic
+appId: com.aimusicplayer.app
+productName: ai-musicplayer
 directories:
   app: dist_electron/bundled
   output: dist_electron
@@ -20,8 +20,8 @@ win:
   icon: build/icons/icon.ico
 nsis:
   deleteAppDataOnUninstall: false
-  artifactName: YesPlayMusic-${version}-win-setup.exe
+  artifactName: ai-musicplayer-${version}-win-setup.exe
 portable:
-  artifactName: YesPlayMusic-${version}-win-portable.zip
+  artifactName: ai-musicplayer-${version}-win-portable.zip
 electronDownload:
   mirror: https://npmmirror.com/mirrors/electron/

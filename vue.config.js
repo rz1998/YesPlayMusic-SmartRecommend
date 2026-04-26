@@ -21,7 +21,7 @@ module.exports = {
     },
   },
   pwa: {
-    name: 'YesPlayMusic',
+    name: 'ai-musicplayer',
     iconPaths: {
       favicon32: 'img/icons/favicon-32x32.png',
     },
@@ -38,7 +38,7 @@ module.exports = {
       entry: 'src/main.js',
       template: 'public/index.html',
       filename: 'index.html',
-      title: 'YesPlayMusic',
+      title: 'ai-musicplayer',
       chunks: ['main', 'chunk-vendors', 'chunk-common', 'index'],
     },
   },
@@ -88,8 +88,8 @@ module.exports = {
       nodeIntegration: true,
       externals: ['@unblockneteasemusic/rust-napi'],
       builderOptions: {
-        productName: 'YesPlayMusic',
-        copyright: 'Copyright © YesPlayMusic',
+        productName: 'ai-musicplayer',
+        copyright: 'Copyright © ai-musicplayer',
         // version 从环境变量 ARTIFACT_VERSION 读取（CI自动设置，去掉v前缀）
         extraMetadata: {
           version: process.env.ARTIFACT_VERSION ? process.env.ARTIFACT_VERSION.replace(/^v/, '') : require('./package.json').version,
@@ -100,7 +100,7 @@ module.exports = {
           {
             provider: 'github',
             owner: 'qier222',
-            repo: 'YesPlayMusic',
+            repo: 'ai-musicplayer',
             vPrefixedTagName: true,
             releaseType: 'draft',
           },
@@ -131,7 +131,7 @@ module.exports = {
               arch: ['x64'],
             },
           ],
-          publisherName: 'YesPlayMusic',
+          publisherName: 'ai-musicplayer',
           icon: 'build/icons/icon.ico',
           publish: ['github'],
         },
