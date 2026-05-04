@@ -35,8 +35,16 @@ if (process.env.NODE_ENV === 'production') {
 function isPortAvailable(port) {
   return new Promise((resolve) => {
     const server = net.createServer();
-    server.once('error', () => resolve(false));
+    const timer = setTimeout(() => {
+      server.close();
+      resolve(false);
+    }, 1000);
+    server.once('error', () => {
+      clearTimeout(timer);
+      resolve(false);
+    });
     server.once('listen', () => {
+      clearTimeout(timer);
       server.close();
       resolve(true);
     });
@@ -47,7 +55,10 @@ function isPortAvailable(port) {
 async function findAvailablePort(startPort, maxTries = 20) {
   for (let i = 0; i < maxTries; i++) {
     const port = startPort + i;
-    if (await isPortAvailable(port)) {
+    console.log(`🔍 Checking port ${port}...`);
+    const available = await isPortAvailable(port);
+    console.log(`Port ${port} available: ${available}`);
+    if (available) {
       return port;
     }
     console.log(`⚠ Port ${port} is in use, trying ${port + 1}...`);
@@ -62,7 +73,9 @@ async function start() {
     await db.initialize();
 
     const START_PORT = parseInt(process.env.PORT || '3001', 10);
-    const PORT = await findAvailablePort(START_PORT);
+    // Skip port check - just use START_PORT directly
+    const PORT = START_PORT;
+    console.log(`🚀 Starting server directly on port ${PORT}...`);
 
     const server = app.listen(PORT, '0.0.0.0', () => {
       console.log(`🎵 ai-musicplayer Recommendation Server running on port ${PORT}`);
