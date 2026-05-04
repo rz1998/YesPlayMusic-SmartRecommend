@@ -176,6 +176,10 @@ proxy: {
     target: 'http://localhost:3001',
     changeOrigin: true,
   },
+  '^/api/user/sync-songs': {
+    target: 'http://localhost:3001',
+    changeOrigin: true,
+  },
 
   // 网易云 API 路由 → :10754 (所有其他 /api/*)
   '^/api': {

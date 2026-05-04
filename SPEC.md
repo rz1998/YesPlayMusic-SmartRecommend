@@ -182,6 +182,7 @@ proxy: {
   '^/api/event': { target: 'http://localhost:3001', changeOrigin: true },
   '^/api/recommend$': { target: 'http://localhost:3001', changeOrigin: true },
   '^/api/user/profile': { target: 'http://localhost:3001', changeOrigin: true },
+  '^/api/user/sync-songs': { target: 'http://localhost:3001', changeOrigin: true },
 
   // 网易云 API 路由 → :10754 (所有其他 /api/*)
   '^/api': { target: 'http://localhost:10754', changeOrigin: true, pathRewrite: { '^/api': '/' } },
@@ -191,7 +192,7 @@ proxy: {
 **路由匹配规则**：
 1. 按配置顺序匹配，**最先匹配的原则**
 2. `$` 锚点确保精确匹配：`^/api/recommend$` 只匹配 `/api/recommend`，不匹配 `/api/recommend/songs`
-3. `/api/user/profile` 必须在 `^/api` 之前配置
+3. `/api/user/profile` 和 `/api/user/sync-songs` 必须在 `^/api` 之前配置
 4. pathRewrite 只用于网易云 API（去除 `/api` 前缀）
 
 ---

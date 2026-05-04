@@ -25,6 +25,10 @@ module.exports = {
         target: 'http://localhost:3001',
         changeOrigin: true,
       },
+      '^/api/user/sync-songs': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+      },
       // Netease API routes → Netease API server (10754)
       '^/api': {
         target: 'http://localhost:10754',
