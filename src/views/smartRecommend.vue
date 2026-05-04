@@ -63,6 +63,7 @@ import TrackList from '@/components/TrackList.vue';
 import { getRecommendations, getUserProfile, syncSongs } from '@/api/recommend';
 import { getTrackDetail } from '@/api/track';
 import { recommendPlaylist } from '@/api/playlist';
+import { getAlbum } from '@/api/album';
 import { topSong } from '@/api/track';
 
 export default {
@@ -111,6 +112,9 @@ export default {
           // 获取喜欢的歌曲ID列表（最多500首）
           const likedSongIds = this.liked.songs.slice(0, 500);
 
+          // 收集所有同步的歌曲（用于后续封面同步）
+          const allSyncedSongs = [];
+
           // 分批获取歌曲详情（每批100首）
           const batchSize = 100;
           for (let i = 0; i < likedSongIds.length; i += batchSize) {
@@ -129,7 +133,7 @@ export default {
                   albumId: s.al?.id,
                   albumName: s.al?.name,
                   duration: s.dt,
-                  picUrl: s.al?.picUrl, // 专辑封面
+                  picUrl: s.al?.picUrl, // 专辑封面（可能为空）
                   // 扩展维度（网易云可能提供部分）
                   bpm: s.bpm || undefined,
                   genre: s.tag?.join(',') || undefined,
@@ -140,6 +144,7 @@ export default {
                   energy: s.energy || undefined,
                   danceability: s.danceability || undefined,
                 }));
+                allSyncedSongs.push(...songsToSync);
                 const result = await syncSongs(songsToSync, this.userId, true);
                 if (result.success) {
                   needsRefresh = true;
@@ -148,6 +153,11 @@ export default {
             } catch (e) {
               console.warn('Failed to sync batch:', i, e);
             }
+          }
+
+          // 同步完成后，获取缺失的专辑封面
+          if (allSyncedSongs.length > 0) {
+            await this.syncAlbumCovers(allSyncedSongs);
           }
           // 记录已同步的数量，避免下次重复同步
           localStorage.setItem(STORAGE_KEY, String(likedCount));
@@ -200,6 +210,7 @@ export default {
       if (this.likedSongsCount > 0) {
         try {
           const likedSongIds = this.liked.songs.slice(0, 500);
+          const allSyncedSongs = [];
           const batchSize = 100;
           for (let i = 0; i < likedSongIds.length; i += batchSize) {
             const batchIds = likedSongIds.slice(i, i + batchSize);
@@ -219,8 +230,13 @@ export default {
                 genre: s.tag?.join(',') || undefined,
                 publishTime: s.publishTime || undefined,
               }));
+              allSyncedSongs.push(...songsToSync);
               await syncSongs(songsToSync, this.userId, true); // recordLikes=true（新歌曲记录like事件）
             }
+          }
+          // 同步缺失的专辑封面
+          if (allSyncedSongs.length > 0) {
+            await this.syncAlbumCovers(allSyncedSongs);
           }
         } catch (e) {
           console.warn('Refresh sync failed:', e);
@@ -314,6 +330,62 @@ export default {
       if (this.likedSongsCount > 0) {
         this.recommendations = this.liked.songs.slice(0, 20);
         this.hasEnoughData = true;
+      }
+    },
+
+    /**
+     * 同步专辑封面 - 获取缺失封面的专辑并更新
+     */
+    async syncAlbumCovers(songs) {
+      try {
+        // 收集需要获取封面的专辑ID（没有封面的）
+        const albumMap = new Map(); // albumId -> { name, picUrl }
+        songs.forEach(s => {
+          if (s.albumId && !s.picUrl) {
+            albumMap.set(s.albumId, { name: s.albumName });
+          }
+        });
+
+        if (albumMap.size === 0) {
+          return; // 全部已有封面
+        }
+
+        console.log(`📷 Fetching covers for ${albumMap.size} albums...`);
+
+        // 批量获取专辑详情（每批50个）
+        const albumIds = Array.from(albumMap.keys());
+        const batchSize = 50;
+        const updatedSongs = [];
+
+        for (let i = 0; i < albumIds.length; i += batchSize) {
+          const batch = albumIds.slice(i, i + batchSize);
+          try {
+            // 并行获取多个专辑的详情
+            const albumPromises = batch.map(albumId => getAlbum(albumId));
+            const albums = await Promise.all(albumPromises);
+
+            albums.forEach(album => {
+              if (album && album.id && album.picUrl) {
+                // 更新本地歌曲的封面
+                const songWithCover = songs.find(s => s.albumId === album.id);
+                if (songWithCover) {
+                  songWithCover.picUrl = album.picUrl;
+                }
+              }
+            });
+          } catch (e) {
+            console.warn('Failed to fetch album batch:', e);
+          }
+        }
+
+        // 如果有封面更新，重新同步到后端
+        const songsWithCovers = songs.filter(s => s.picUrl);
+        if (songsWithCovers.length > 0) {
+          await syncSongs(songsWithCovers, this.userId, false);
+          console.log(`✅ Updated ${songsWithCovers.length} song covers`);
+        }
+      } catch (e) {
+        console.warn('Failed to sync album covers:', e);
       }
     },
 
