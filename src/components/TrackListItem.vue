@@ -126,7 +126,8 @@ export default {
         'https://p2.music.126.net/UeTuwE7pvjBpypWLudqukA==/3132508627578625.jpg';
       // If image is not a full URL (e.g., just 'pic.jpg'), use fallback
       if (!image || !image.startsWith('http')) {
-        image = 'https://p2.music.126.net/UeTuwE7pvjBpypWLudqukA==/3132508627578625.jpg';
+        image =
+          'https://p2.music.126.net/UeTuwE7pvjBpypWLudqukA==/3132508627578625.jpg';
       }
       return image + '?param=224y224';
     },

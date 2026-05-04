@@ -606,10 +606,12 @@ export default class {
     }
     let artists = track.ar.map(a => a.name);
     // Fallback image if picUrl is invalid
-    const fallbackImg = 'https://p2.music.126.net/UeTuwE7pvjBpypWLudqukA==/3132508627578625.jpg';
-    const picUrl = (track.al?.picUrl && track.al.picUrl.startsWith('http'))
-      ? track.al.picUrl
-      : fallbackImg;
+    const fallbackImg =
+      'https://p2.music.126.net/UeTuwE7pvjBpypWLudqukA==/3132508627578625.jpg';
+    const picUrl =
+      track.al?.picUrl && track.al.picUrl.startsWith('http')
+        ? track.al.picUrl
+        : fallbackImg;
     const metadata = {
       title: track.name,
       artist: artists.join(','),
