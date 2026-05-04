@@ -161,12 +161,16 @@
 
 | 路径模式 | 说明 |
 |----------|------|
-| `/api/user/*` | 用户相关 |
+| `/api/user/account` | 账号信息 |
+| `/api/user/detail` | 用户详情 |
+| `/api/user/playlist` | 用户歌单 |
 | `/api/playlist/*` | 歌单相关 |
 | `/api/song/*` | 歌曲相关 |
 | `/api/search` | 搜索 |
 | `/api/personal_fm` | 私人 FM |
 | `/api/recommend/songs` | 每日推荐歌曲 |
+
+**注意**：`/api/user/profile` 属于推荐服务，路由到 3001（见 5.3）
 
 ### 5.3 Vue CLI Proxy 配置
 
@@ -177,15 +181,18 @@ proxy: {
   // 推荐服务路由 → :3001
   '^/api/event': { target: 'http://localhost:3001', changeOrigin: true },
   '^/api/recommend$': { target: 'http://localhost:3001', changeOrigin: true },
+  '^/api/user/profile': { target: 'http://localhost:3001', changeOrigin: true },
 
-  // 网易云 API 路由 → :10754
+  // 网易云 API 路由 → :10754 (所有其他 /api/*)
   '^/api': { target: 'http://localhost:10754', changeOrigin: true, pathRewrite: { '^/api': '/' } },
 }
 ```
 
-**注意**：
-- 路由顺序很重要，`^/api/recommend$` 必须放在 `^/api` 之前
-- `$` 锚点确保精确匹配，避免 `/api/recommend/songs` 被错误路由
+**路由匹配规则**：
+1. 按配置顺序匹配，**最先匹配的原则**
+2. `$` 锚点确保精确匹配：`^/api/recommend$` 只匹配 `/api/recommend`，不匹配 `/api/recommend/songs`
+3. `/api/user/profile` 必须在 `^/api` 之前配置
+4. pathRewrite 只用于网易云 API（去除 `/api` 前缀）
 
 ---
 

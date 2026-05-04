@@ -175,7 +175,12 @@ export default {
       let profileResult = null;
 
       try {
-        recResult = await getRecommendations(this.userId, 30, true, needsRefresh);
+        recResult = await getRecommendations(
+          this.userId,
+          30,
+          true,
+          needsRefresh
+        );
       } catch (e) {
         console.warn('Failed to get recommendations:', e);
       }

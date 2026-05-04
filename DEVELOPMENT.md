@@ -163,12 +163,16 @@ ls -lh dist_electron/*.tar.gz
 
 ```javascript
 proxy: {
-  // 推荐服务路由 → :3001 (精确匹配 /api/recommend)
+  // 推荐服务路由 → :3001
   '^/api/event': {
     target: 'http://localhost:3001',
     changeOrigin: true,
   },
   '^/api/recommend$': {
+    target: 'http://localhost:3001',
+    changeOrigin: true,
+  },
+  '^/api/user/profile': {
     target: 'http://localhost:3001',
     changeOrigin: true,
   },
@@ -184,7 +188,7 @@ proxy: {
 
 **关键配置说明**：
 
-1. **路由顺序很重要**：Vue CLI proxy 按顺序匹配，`^/api/event` 和 `^/api/recommend$` 必须放在 `^/api` 之前
+1. **路由顺序很重要**：Vue CLI proxy 按顺序匹配，先配置的优先
 2. **精确匹配 `/api/recommend`**：使用 `$` 锚点确保只匹配根路径，不匹配 `/api/recommend/songs`
 3. **pathRewrite 仅用于 Netease API**：网易云 API 路径是 `/song/url` 而不是 `/api/song/url`，所以需要去除 `/api` 前缀
 4. **推荐服务不需要 pathRewrite**：因为 recommender 服务器的路由也是 `/api/*` 格式
