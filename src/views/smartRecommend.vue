@@ -355,7 +355,6 @@ export default {
         // 批量获取专辑详情（每批50个）
         const albumIds = Array.from(albumMap.keys());
         const batchSize = 50;
-        const updatedSongs = [];
 
         for (let i = 0; i < albumIds.length; i += batchSize) {
           const batch = albumIds.slice(i, i + batchSize);
