@@ -6,8 +6,17 @@
  * - 推荐算法基于用户个人偏好
  */
 
-const RECOMMENDER_HOST =
-  process.env.VUE_APP_RECOMMENDER_HOST || 'http://localhost:3001';
+// For browser access, use relative URL to go through Vue proxy
+// For Electron, use direct host
+const getRecommenderHost = () => {
+  if (process.env.IS_ELECTRON) {
+    return process.env.VUE_APP_RECOMMENDER_HOST || 'http://localhost:3001';
+  }
+  // In browser, use relative path to go through Vue CLI proxy
+  return '';
+};
+
+const RECOMMENDER_HOST = getRecommenderHost();
 
 /**
  * Record a play event
