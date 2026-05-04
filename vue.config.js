@@ -12,16 +12,15 @@ module.exports = {
     port: process.env.DEV_SERVER_PORT || 8080,
     proxy: {
       // Recommender API routes → recommender server (3001)
-      // Only match /api/recommend (root) - NOT /api/recommend/songs or /api/recommend/resource
-      '^/api/recommend$': {
-        target: 'http://localhost:3001',
-        changeOrigin: true,
-        pathRewrite: { '^/api/recommend': '/' },
-      },
+      // Routes: /api/event/*, /api/recommend, /api/user/*
+      // NOTE: pathRewrite should NOT strip /api prefix - recommender server uses same /api/* routes
       '^/api/event': {
         target: 'http://localhost:3001',
         changeOrigin: true,
-        pathRewrite: { '^/api/event': '/' },
+      },
+      '^/api/recommend$': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
       },
       // Netease API routes → Netease API server (10754)
       '^/api': {
