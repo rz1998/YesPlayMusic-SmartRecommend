@@ -161,35 +161,7 @@ class Background {
     const expressApp = express();
     expressApp.use('/', express.static(__dirname + '/'));
 
-    // 具体路由优先匹配（网易云API的通用路由放最后兜底）
-    // 推荐服务（3001）
-    expressApp.use(
-      '/api/recommend',
-      expressProxy('http://127.0.0.1:3001', {
-        proxyReqPathResolver: req => req.originalUrl,
-      })
-    );
-    // 事件服务（3001）
-    expressApp.use(
-      '/api/event',
-      expressProxy('http://127.0.0.1:3001', {
-        proxyReqPathResolver: req => req.originalUrl,
-      })
-    );
-    // 用户画像服务（3001）—— 具体路径精确匹配，避免拦截网易云的 /api/user/playlist 等接口
-    expressApp.use(
-      '/api/user/profile',
-      expressProxy('http://127.0.0.1:3001', {
-        proxyReqPathResolver: req => req.originalUrl,
-      })
-    );
-    expressApp.use(
-      '/api/user/sync-songs',
-      expressProxy('http://127.0.0.1:3001', {
-        proxyReqPathResolver: req => req.originalUrl,
-      })
-    );
-    // 通用路由（网易云API）—— 兜底未匹配的 /api/* 请求
+    // 网易云API代理：未匹配的 /api/* 请求代理到网易云 API
     expressApp.use('/api', expressProxy('http://127.0.0.1:10754'));
     expressApp.use('/player', (req, res) => {
       this.window.webContents

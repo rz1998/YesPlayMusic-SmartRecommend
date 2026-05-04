@@ -77,8 +77,17 @@ async function start() {
   }
 }
 
+// Initialize database on module load (so require() gives a ready app)
+const db = require('./models/db');
+const dbReady = db.initialize().catch(err => {
+  console.error('[Server] DB init error:', err.message);
+});
+
 // Export app for testing (don't auto-start when imported as module)
+// Support both CommonJS require() and ES module import default export
 module.exports = app;
+module.exports.default = app;
+module.exports.dbReady = dbReady;
 
 // Auto-start only when run directly (not when imported as module)
 if (require.main === module) {

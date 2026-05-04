@@ -8,13 +8,12 @@ files:
 asar: false
 win:
   target:
-    - target: nsis
+    - target: portable
       arch:
         - x64
   icon: build/icons/icon.ico
-nsis:
-  deleteAppDataOnUninstall: false
-  artifactName: ai-musicplayer-${version}-win-setup.exe
+portable:
+  artifactName: ai-musicplayer-${version}.exe
 electronDownload:
   mirror: https://npmmirror.com/mirrors/electron/
 afterPack: ./scripts/afterPackNoAsar.js

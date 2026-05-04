@@ -61,7 +61,7 @@ Vue.filter('formatAlbumType', (type, album) => {
 });
 
 Vue.filter('resizeImage', (imgUrl, size = 512) => {
-  if (!imgUrl) return '';
+  if (!imgUrl || !imgUrl.startsWith('http')) return '';
   let httpsImgUrl = imgUrl;
   if (imgUrl.slice(0, 5) !== 'https') {
     httpsImgUrl = 'https' + imgUrl.slice(4);

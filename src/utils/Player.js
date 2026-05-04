@@ -605,18 +605,23 @@ export default class {
       return;
     }
     let artists = track.ar.map(a => a.name);
+    // Fallback image if picUrl is invalid
+    const fallbackImg = 'https://p2.music.126.net/UeTuwE7pvjBpypWLudqukA==/3132508627578625.jpg';
+    const picUrl = (track.al?.picUrl && track.al.picUrl.startsWith('http'))
+      ? track.al.picUrl
+      : fallbackImg;
     const metadata = {
       title: track.name,
       artist: artists.join(','),
       album: track.al.name,
       artwork: [
         {
-          src: track.al.picUrl + '?param=224y224',
+          src: picUrl + '?param=224y224',
           type: 'image/jpg',
           sizes: '224x224',
         },
         {
-          src: track.al.picUrl + '?param=512y512',
+          src: picUrl + '?param=512y512',
           type: 'image/jpg',
           sizes: '512x512',
         },

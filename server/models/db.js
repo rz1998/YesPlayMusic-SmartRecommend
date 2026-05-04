@@ -10,7 +10,10 @@ const { v4: uuidv4 } = require('uuid');
 
 const DEFAULT_DATA_DIR = path.join(__dirname, '../data');
 const DATA_DIR = process.env.RECOMMENDER_DB_DIR || DEFAULT_DATA_DIR;
-const DB_FILE = path.join(DATA_DIR, process.env.RECOMMENDER_DB_FILE || 'recommender.db');
+const DB_FILE = path.join(
+  DATA_DIR,
+  process.env.RECOMMENDER_DB_FILE || 'recommender.db'
+);
 
 // Ensure data directory exists
 if (!fs.existsSync(DATA_DIR)) {
@@ -23,17 +26,19 @@ let SQL = null;
 // Initialize database
 async function initDb() {
   if (db) return db;
-  
+
   SQL = await initSqlJs();
-  
+
   // Load existing database or create new one
   if (fs.existsSync(DB_FILE)) {
     const buffer = fs.readFileSync(DB_FILE);
     db = new SQL.Database(buffer);
-    
+
     // Migration: add song_duration column if it doesn't exist
     try {
-      db.run(`ALTER TABLE user_events ADD COLUMN song_duration INTEGER DEFAULT 0`);
+      db.run(
+        `ALTER TABLE user_events ADD COLUMN song_duration INTEGER DEFAULT 0`
+      );
       console.log('✅ Migrated: added song_duration column');
       saveDb();
     } catch (e) {
@@ -48,6 +53,7 @@ async function initDb() {
       { col: 'energy', type: 'REAL' },
       { col: 'danceability', type: 'REAL' },
       { col: 'tags', type: 'TEXT' },
+      { col: 'pic_url', type: 'TEXT' },
     ];
     for (const mig of songFeatureMigrations) {
       try {
@@ -104,7 +110,7 @@ async function initDb() {
     `);
     saveDb();
   }
-  
+
   return db;
 }
 
@@ -136,12 +142,28 @@ function run(sql, params = []) {
 }
 
 // Event operations
-function addEvent(userId, songId, eventType, duration = 0, completed = false, songDuration = null) {
+function addEvent(
+  userId,
+  songId,
+  eventType,
+  duration = 0,
+  completed = false,
+  songDuration = null
+) {
   const id = uuidv4();
   run(
     `INSERT INTO user_events (id, user_id, song_id, event_type, duration, song_duration, completed, created_at) 
      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-    [id, userId, String(songId), eventType, duration, songDuration || 0, completed ? 1 : 0, new Date().toISOString()]
+    [
+      id,
+      userId,
+      String(songId),
+      eventType,
+      duration,
+      songDuration || 0,
+      completed ? 1 : 0,
+      new Date().toISOString(),
+    ]
   );
   return { id, userId, songId, eventType, duration, songDuration, completed };
 }
@@ -149,15 +171,15 @@ function addEvent(userId, songId, eventType, duration = 0, completed = false, so
 function getUserEvents(userId, eventType = null, limit = 100) {
   let sql = `SELECT * FROM user_events WHERE user_id = ?`;
   const params = [userId];
-  
+
   if (eventType) {
     sql += ` AND event_type = ?`;
     params.push(eventType);
   }
-  
+
   sql += ` ORDER BY created_at DESC LIMIT ?`;
   params.push(limit);
-  
+
   const results = query(sql, params);
   return results.map(row => ({
     id: row.id,
@@ -190,6 +212,24 @@ function getUserEventsForSong(userId, songId) {
 }
 
 /**
+ * Get events for multiple songs (for metrics calculation)
+ * @param {string} userId
+ * @param {string[]} songIds
+ * @param {string} eventType
+ * @returns {Array} events matching the criteria
+ */
+function getUserEventsForSongs(userId, songIds, eventType) {
+  if (!songIds || songIds.length === 0) return [];
+  const placeholders = songIds.map(() => '?').join(',');
+  const results = query(
+    `SELECT * FROM user_events
+     WHERE user_id = ? AND song_id IN (${placeholders}) AND event_type = ?`,
+    [userId, ...songIds.map(id => String(id)), eventType]
+  );
+  return results;
+}
+
+/**
  * Delete specific event types for a user+song combination.
  * Used to prevent duplicate like/unlike records under concurrent requests.
  * @param {string} userId
@@ -214,7 +254,7 @@ function getUserLikedSongs(userId, limit = 1000) {
      ORDER BY created_at DESC`,
     [userId]
   );
-  
+
   // Build a map: song_id -> latest event_type (first occurrence = latest due to DESC order)
   const latestEventMap = {};
   for (const row of results) {
@@ -222,13 +262,13 @@ function getUserLikedSongs(userId, limit = 1000) {
       latestEventMap[row.song_id] = row.event_type;
     }
   }
-  
+
   // Only return songs where latest event is 'like'
   const likedSongs = Object.entries(latestEventMap)
     .filter(([_, eventType]) => eventType === 'like')
     .map(([songId, _]) => songId)
     .slice(0, limit);
-  
+
   return likedSongs;
 }
 
@@ -242,21 +282,24 @@ function getUserPlayedSongs(userId, limit = 500) {
      ORDER BY created_at DESC`,
     [userId]
   );
-  
+
   // Build a map: song_id -> latest event info (first occurrence = latest due to DESC order)
   const latestEventMap = {};
   for (const row of results) {
     if (latestEventMap[row.song_id] === undefined) {
-      latestEventMap[row.song_id] = { eventType: row.event_type, completed: row.completed };
+      latestEventMap[row.song_id] = {
+        eventType: row.event_type,
+        completed: row.completed,
+      };
     }
   }
-  
+
   // Only return songs where latest event is 'play' AND completed=1 (fully listened)
   const playedSongs = Object.entries(latestEventMap)
     .filter(([_, info]) => info.eventType === 'play' && info.completed === 1)
     .map(([songId, _]) => songId)
     .slice(0, limit);
-  
+
   return playedSongs;
 }
 
@@ -269,21 +312,24 @@ function getPartialPlayedSongs(userId, limit = 500) {
      ORDER BY created_at DESC`,
     [userId]
   );
-  
+
   // Build a map: song_id -> latest event info (first occurrence = latest due to DESC order)
   const latestEventMap = {};
   for (const row of results) {
     if (latestEventMap[row.song_id] === undefined) {
-      latestEventMap[row.song_id] = { eventType: row.event_type, completed: row.completed };
+      latestEventMap[row.song_id] = {
+        eventType: row.event_type,
+        completed: row.completed,
+      };
     }
   }
-  
+
   // Only return songs where latest event is 'play' AND completed=0 (partially listened, 30%-70%)
   const partialPlayedSongs = Object.entries(latestEventMap)
     .filter(([_, info]) => info.eventType === 'play' && info.completed === 0)
     .map(([songId, _]) => songId)
     .slice(0, limit);
-  
+
   return partialPlayedSongs;
 }
 
@@ -296,7 +342,7 @@ function getUserSkippedSongs(userId, limit = 500) {
      ORDER BY created_at DESC`,
     [userId]
   );
-  
+
   // Build a map: song_id -> latest event_type (first occurrence = latest due to DESC order)
   const latestEventMap = {};
   for (const row of results) {
@@ -304,13 +350,13 @@ function getUserSkippedSongs(userId, limit = 500) {
       latestEventMap[row.song_id] = row.event_type;
     }
   }
-  
+
   // Only return songs where latest event is 'skip'
   const skippedSongs = Object.entries(latestEventMap)
     .filter(([_, eventType]) => eventType === 'skip')
     .map(([songId, _]) => songId)
     .slice(0, limit);
-  
+
   return skippedSongs;
 }
 
@@ -323,7 +369,7 @@ function getUserSkippedSongsWithDetails(userId, limit = 500) {
      ORDER BY created_at DESC`,
     [userId]
   );
-  
+
   // Build a map: song_id -> latest event info (first occurrence = latest due to DESC order)
   const latestEventMap = {};
   for (const row of results) {
@@ -331,7 +377,7 @@ function getUserSkippedSongsWithDetails(userId, limit = 500) {
       latestEventMap[row.song_id] = row;
     }
   }
-  
+
   // Only return songs where latest event is 'skip', with duration details
   const skippedSongs = Object.entries(latestEventMap)
     .filter(([_, eventInfo]) => eventInfo.event_type === 'skip')
@@ -341,39 +387,71 @@ function getUserSkippedSongsWithDetails(userId, limit = 500) {
       songDuration: eventInfo.song_duration,
     }))
     .slice(0, limit);
-  
+
   return skippedSongs;
 }
 
 // Song operations
 function saveSong(song) {
-  const existing = query(`SELECT song_id FROM song_features WHERE song_id = ?`, [String(song.songId)]);
-  
+  const existing = query(
+    `SELECT song_id FROM song_features WHERE song_id = ?`,
+    [String(song.songId)]
+  );
+
   if (existing.length > 0) {
-    run(`UPDATE song_features SET 
+    run(
+      `UPDATE song_features SET 
       artist_id = ?, artist_name = ?, album_id = ?, album_name = ?,
       duration = ?, bpm = ?, genre = ?, publish_time = ?,
       mood = ?, language = ?, decade = ?, energy = ?, danceability = ?,
-      tags = ?, name = ?, updated_at = ?
+      tags = ?, name = ?, pic_url = ?, updated_at = ?
       WHERE song_id = ?`,
       [
-        song.artistId || null, song.artistName || null, song.albumId || null, song.albumName || null,
-        song.duration || null, song.bpm || null, song.genre || null, song.publishTime || null,
-        song.mood || null, song.language || null, song.decade || null, song.energy || null, song.danceability || null,
-        song.tags ? JSON.stringify(song.tags) : null, song.name || null, new Date().toISOString(),
-        String(song.songId)
+        song.artistId || null,
+        song.artistName || null,
+        song.albumId || null,
+        song.albumName || null,
+        song.duration || null,
+        song.bpm || null,
+        song.genre || null,
+        song.publishTime || null,
+        song.mood || null,
+        song.language || null,
+        song.decade || null,
+        song.energy || null,
+        song.danceability || null,
+        song.tags ? JSON.stringify(song.tags) : null,
+        song.name || null,
+        song.picUrl || null,
+        new Date().toISOString(),
+        String(song.songId),
       ]
     );
   } else {
-    run(`INSERT INTO song_features 
+    run(
+      `INSERT INTO song_features 
       (song_id, artist_id, artist_name, album_id, album_name, duration, bpm, genre, publish_time,
-       mood, language, decade, energy, danceability, tags, name, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       mood, language, decade, energy, danceability, tags, name, pic_url, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
-        String(song.songId), song.artistId || null, song.artistName || null, song.albumId || null, song.albumName || null,
-        song.duration || null, song.bpm || null, song.genre || null, song.publishTime || null,
-        song.mood || null, song.language || null, song.decade || null, song.energy || null, song.danceability || null,
-        song.tags ? JSON.stringify(song.tags) : null, song.name || null, new Date().toISOString()
+        String(song.songId),
+        song.artistId || null,
+        song.artistName || null,
+        song.albumId || null,
+        song.albumName || null,
+        song.duration || null,
+        song.bpm || null,
+        song.genre || null,
+        song.publishTime || null,
+        song.mood || null,
+        song.language || null,
+        song.decade || null,
+        song.energy || null,
+        song.danceability || null,
+        song.tags ? JSON.stringify(song.tags) : null,
+        song.name || null,
+        song.picUrl || null,
+        new Date().toISOString(),
       ]
     );
   }
@@ -386,7 +464,9 @@ function saveSongs(songsArray) {
 }
 
 function getSong(songId) {
-  const results = query(`SELECT * FROM song_features WHERE song_id = ?`, [String(songId)]);
+  const results = query(`SELECT * FROM song_features WHERE song_id = ?`, [
+    String(songId),
+  ]);
   return results.length > 0 ? normalizeSong(results[0]) : null;
 }
 
@@ -419,30 +499,44 @@ function normalizeSong(row) {
     danceability: row.danceability,
     tags: row.tags ? JSON.parse(row.tags) : null,
     name: row.name,
+    picUrl: row.pic_url,
   };
 }
 
 function getAllSongs(limit = 500) {
-  const results = query(`SELECT * FROM song_features ORDER BY updated_at DESC LIMIT ?`, [limit]);
+  const results = query(
+    `SELECT * FROM song_features ORDER BY updated_at DESC LIMIT ?`,
+    [limit]
+  );
   return results.map(normalizeSong);
 }
 
 // User profile operations
 function getUserProfile(userId) {
-  const results = query(`SELECT * FROM user_profiles WHERE user_id = ?`, [userId]);
+  const results = query(`SELECT * FROM user_profiles WHERE user_id = ?`, [
+    userId,
+  ]);
   if (results.length === 0) return null;
   return JSON.parse(results[0].data || '{}');
 }
 
 function updateUserProfile(userId, updates) {
-  const existing = query(`SELECT user_id FROM user_profiles WHERE user_id = ?`, [userId]);
-  
+  const existing = query(
+    `SELECT user_id FROM user_profiles WHERE user_id = ?`,
+    [userId]
+  );
+
   if (existing.length > 0) {
-    run(`UPDATE user_profiles SET data = ?, updated_at = ? WHERE user_id = ?`,
-      [JSON.stringify(updates), new Date().toISOString(), userId]);
+    run(`UPDATE user_profiles SET data = ?, updated_at = ? WHERE user_id = ?`, [
+      JSON.stringify(updates),
+      new Date().toISOString(),
+      userId,
+    ]);
   } else {
-    run(`INSERT INTO user_profiles (user_id, data, updated_at) VALUES (?, ?, ?)`,
-      [userId, JSON.stringify(updates), new Date().toISOString()]);
+    run(
+      `INSERT INTO user_profiles (user_id, data, updated_at) VALUES (?, ?, ?)`,
+      [userId, JSON.stringify(updates), new Date().toISOString()]
+    );
   }
 }
 
@@ -453,20 +547,20 @@ function getUserStats(userId) {
      FROM user_events WHERE user_id = ? GROUP BY event_type`,
     [userId]
   );
-  
+
   const stats = {
     play: { count: 0, totalDuration: 0 },
     skip: { count: 0, totalDuration: 0 },
     like: { count: 0 },
   };
-  
+
   for (const row of results) {
     if (stats[row.event_type]) {
       stats[row.event_type].count = row.count;
       stats[row.event_type].totalDuration = row.total_duration || 0;
     }
   }
-  
+
   return stats;
 }
 
@@ -482,6 +576,7 @@ module.exports = {
   addEvent,
   getUserEvents,
   getUserEventsForSong,
+  getUserEventsForSongs,
   deleteUserSongEvents,
   getUserPlayedSongs,
   getUserLikedSongs,

@@ -5,6 +5,7 @@
  * - Records play events when songs are played
  * - Detects skips (song changed before completion)
  * - Records likes/unlikes
+ * - Offline event queue with retry mechanism
  *
  * Usage:
  *   import playBehaviorTracker from '@/mixins/playBehaviorTracker';
@@ -24,6 +25,10 @@ import {
   recordUnlike,
 } from '@/api/recommend';
 
+const EVENT_QUEUE_KEY = 'ypm_event_queue';
+const MAX_QUEUE_SIZE = 100;
+const RETRY_INTERVAL_MS = 5000;
+
 export default {
   data() {
     return {
@@ -32,7 +37,19 @@ export default {
       listenStartTime: 0,
       listenDuration: 0,
       isPlaying: false,
+      // Offline event queue
+      eventQueue: [],
+      _retryTimer: null,
     };
+  },
+  created() {
+    // Load queued events from localStorage
+    this._loadEventQueue();
+    // Start retry loop
+    this._startRetryLoop();
+    // Listen for online/offline events
+    window.addEventListener('online', this._onNetworkOnline);
+    window.addEventListener('offline', this._onNetworkOffline);
   },
   computed: {
     ...mapState(['player']),
@@ -66,6 +83,9 @@ export default {
   },
   beforeUnmount() {
     this.stopListenTimer();
+    this._stopRetryLoop();
+    window.removeEventListener('online', this._onNetworkOnline);
+    window.removeEventListener('offline', this._onNetworkOffline);
   },
   methods: {
     handleTrackChange(newTrack, oldTrack, trigger = 'unknown') {
@@ -131,6 +151,172 @@ export default {
       this.listenDuration = 0;
     },
 
+    // ─────────────────────────────────────────────────────────────
+    // Offline Event Queue (§9.4 离线补偿机制)
+    // ─────────────────────────────────────────────────────────────
+
+    /**
+     * Load event queue from localStorage
+     */
+    _loadEventQueue() {
+      try {
+        const stored = localStorage.getItem(EVENT_QUEUE_KEY);
+        if (stored) {
+          this.eventQueue = JSON.parse(stored);
+        }
+      } catch (e) {
+        console.warn('Failed to load event queue:', e);
+        this.eventQueue = [];
+      }
+    },
+
+    /**
+     * Persist event queue to localStorage
+     */
+    _saveEventQueue() {
+      try {
+        localStorage.setItem(EVENT_QUEUE_KEY, JSON.stringify(this.eventQueue));
+      } catch (e) {
+        console.warn('Failed to save event queue:', e);
+      }
+    },
+
+    /**
+     * Add event to queue (FIFO)
+     * @param {Object} event - { type: 'play'|'skip'|'like'|'unlike', ...params }
+     */
+    _enqueueEvent(event) {
+      this.eventQueue.push({ ...event, timestamp: Date.now() });
+      // Keep queue size limited
+      if (this.eventQueue.length > MAX_QUEUE_SIZE) {
+        this.eventQueue = this.eventQueue.slice(-MAX_QUEUE_SIZE);
+      }
+      this._saveEventQueue();
+    },
+
+    /**
+     * Flush all queued events to server
+     */
+    async _flushEventQueue() {
+      if (this.eventQueue.length === 0) return;
+
+      const queue = [...this.eventQueue];
+      let successCount = 0;
+
+      for (const event of queue) {
+        try {
+          switch (event.type) {
+            case 'play':
+              await recordPlay(
+                event.userId,
+                event.songId,
+                event.duration,
+                event.completed
+              );
+              break;
+            case 'skip':
+              await recordSkip(
+                event.userId,
+                event.songId,
+                event.skipTime,
+                event.songDuration
+              );
+              break;
+            case 'like':
+              await recordLike(event.userId, event.songId);
+              break;
+            case 'unlike':
+              await recordUnlike(event.userId, event.songId);
+              break;
+          }
+          // Remove from queue on success
+          this.eventQueue = this.eventQueue.filter(
+            e => e.timestamp !== event.timestamp
+          );
+          successCount++;
+        } catch (e) {
+          // Network error - stop flushing, keep events in queue
+          console.warn('Event flush failed, keeping in queue:', e);
+          break;
+        }
+      }
+
+      if (successCount > 0) {
+        this._saveEventQueue();
+        console.log(`✅ Flushed ${successCount} events from queue`);
+      }
+    },
+
+    /**
+     * Start retry loop for queued events
+     */
+    _startRetryLoop() {
+      if (this._retryTimer) return;
+      this._retryTimer = setInterval(() => {
+        if (navigator.onLine && this.eventQueue.length > 0) {
+          this._flushEventQueue();
+        }
+      }, RETRY_INTERVAL_MS);
+    },
+
+    /**
+     * Stop retry loop
+     */
+    _stopRetryLoop() {
+      if (this._retryTimer) {
+        clearInterval(this._retryTimer);
+        this._retryTimer = null;
+      }
+    },
+
+    /**
+     * Network came back online
+     */
+    _onNetworkOnline() {
+      console.log('🌐 Network online, flushing event queue...');
+      this._flushEventQueue();
+    },
+
+    /**
+     * Network went offline
+     */
+    _onNetworkOffline() {
+      console.log('📴 Network offline, events will be queued');
+    },
+
+    /**
+     * Try to send event, queue on failure
+     */
+    _sendEvent(event) {
+      const apiCall = () => {
+        switch (event.type) {
+          case 'play':
+            return recordPlay(
+              event.userId,
+              event.songId,
+              event.duration,
+              event.completed
+            );
+          case 'skip':
+            return recordSkip(
+              event.userId,
+              event.songId,
+              event.skipTime,
+              event.songDuration
+            );
+          case 'like':
+            return recordLike(event.userId, event.songId);
+          case 'unlike':
+            return recordUnlike(event.userId, event.songId);
+        }
+      };
+
+      apiCall().catch(() => {
+        // Network error - add to queue
+        this._enqueueEvent(event);
+      });
+    },
+
     // Finalize current listen duration before recording
     finalizeListenDuration() {
       if (this.listenStartTime > 0) {
@@ -152,9 +338,13 @@ export default {
       this.listenStartTime = Date.now();
       this.startListenTimer();
 
-      recordPlay(this.userId, song.id, 0, false).catch(err =>
-        console.error('Failed to record play:', err)
-      );
+      this._sendEvent({
+        type: 'play',
+        userId: this.userId,
+        songId: song.id,
+        duration: 0,
+        completed: false,
+      });
     },
 
     /**
@@ -174,12 +364,13 @@ export default {
       const actualListenDuration = listenDuration || this.listenDuration;
 
       // Record skip with listen duration info for dynamic skip penalty calculation on server
-      recordSkip(
-        this.userId,
-        song.id,
-        Math.floor(actualListenDuration),
-        Math.floor(duration)
-      ).catch(err => console.error('Failed to record skip:', err));
+      this._sendEvent({
+        type: 'skip',
+        userId: this.userId,
+        songId: song.id,
+        skipTime: Math.floor(actualListenDuration),
+        songDuration: Math.floor(duration),
+      });
 
       // Reset for next song
       this.listenDuration = 0;
@@ -194,33 +385,42 @@ export default {
       if (!song || !song.id) return;
 
       if (liked) {
-        recordLike(this.userId, song.id).catch(err =>
-          console.error('Failed to record like:', err)
-        );
+        this._sendEvent({
+          type: 'like',
+          userId: this.userId,
+          songId: song.id,
+        });
       } else {
-        recordUnlike(this.userId, song.id).catch(err =>
-          console.error('Failed to record unlike:', err)
-        );
+        this._sendEvent({
+          type: 'unlike',
+          userId: this.userId,
+          songId: song.id,
+        });
       }
     },
 
     recordPlay(songId, duration, completed = false) {
       if (!this.userId || !songId) return;
 
-      recordPlay(this.userId, songId, Math.floor(duration), completed).catch(
-        err => console.error('Failed to record play:', err)
-      );
+      this._sendEvent({
+        type: 'play',
+        userId: this.userId,
+        songId,
+        duration: Math.floor(duration),
+        completed,
+      });
     },
 
     recordSkip(songId, skipTime, songDuration) {
       if (!this.userId || !songId) return;
 
-      recordSkip(
-        this.userId,
+      this._sendEvent({
+        type: 'skip',
+        userId: this.userId,
         songId,
-        Math.floor(skipTime),
-        Math.floor(songDuration || 0)
-      ).catch(err => console.error('Failed to record skip:', err));
+        skipTime: Math.floor(skipTime),
+        songDuration: Math.floor(songDuration || 0),
+      });
     },
 
     isLikedTrack(songId) {

@@ -192,11 +192,11 @@ import playBehaviorTracker from '@/mixins/playBehaviorTracker';
 
 export default {
   name: 'Player',
-  mixins: [playBehaviorTracker],
   components: {
     ButtonIcon,
     VueSlider,
   },
+  mixins: [playBehaviorTracker],
   data() {
     return {
       mouseDownTarget: null,

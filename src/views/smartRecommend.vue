@@ -61,7 +61,9 @@ import { mapState } from 'vuex';
 import NProgress from 'nprogress';
 import TrackList from '@/components/TrackList.vue';
 import { getRecommendations, getUserProfile, syncSongs } from '@/api/recommend';
-import { getTrackDetail } from '@/api/playlist';
+import { getTrackDetail } from '@/api/track';
+import { recommendPlaylist } from '@/api/playlist';
+import { topSong } from '@/api/track';
 
 export default {
   name: 'SmartRecommend',
@@ -103,9 +105,8 @@ export default {
       // 如果有喜欢的歌曲且数量变化了，才重新同步（避免每次页面加载都重复请求）
       const STORAGE_KEY = 'ypm_liked_sync_count_' + this.userId;
       const lastCount = parseInt(localStorage.getItem(STORAGE_KEY) || '0', 10);
-      // 冷启动条件（spec §9.2）：liked < 3 时尝试从网易云同步喜欢列表
-      // 包括：全新用户(liked=0)、偏好不足用户(liked<3)、从充足偏好降级的情况
-      if (likedCount < 3 && (lastCount === 0 || likedCount !== lastCount)) {
+      // 同步条件：首次同步(lastCount=0) 或 数量变化(新增喜欢歌曲)
+      if (lastCount === 0 || likedCount !== lastCount) {
         try {
           // 获取喜欢的歌曲ID列表（最多500首）
           const likedSongIds = this.liked.songs.slice(0, 500);
@@ -128,6 +129,7 @@ export default {
                   albumId: s.al?.id,
                   albumName: s.al?.name,
                   duration: s.dt,
+                  picUrl: s.al?.picUrl, // 专辑封面
                   // 扩展维度（网易云可能提供部分）
                   bpm: s.bpm || undefined,
                   genre: s.tag?.join(',') || undefined,
@@ -166,10 +168,17 @@ export default {
 
       // 解析推荐结果
       if (recResult && recResult.recommendations !== undefined) {
-        this.recommendations = recResult.recommendations || [];
+        this.recommendations = (recResult.recommendations || []).map(
+          this.transformTrack
+        );
         this.hasEnoughData = this.recommendations.length > 0;
       } else {
         this.hasEnoughData = likedCount > 0;
+      }
+
+      // 如果推荐为空，尝试加载官方推荐作为兜底 (§9.3)
+      if (this.recommendations.length === 0) {
+        await this.loadFallbackRecommendations();
       }
 
       // 解析用户画像（播放/点赞/跳过统计）
@@ -205,6 +214,7 @@ export default {
                 albumId: s.al?.id,
                 albumName: s.al?.name,
                 duration: s.dt,
+                picUrl: s.al?.picUrl,
                 bpm: s.bpm || undefined,
                 genre: s.tag?.join(',') || undefined,
                 publishTime: s.publishTime || undefined,
@@ -223,8 +233,15 @@ export default {
       ]);
 
       if (recResult && recResult.recommendations !== undefined) {
-        this.recommendations = recResult.recommendations || [];
+        this.recommendations = (recResult.recommendations || []).map(
+          this.transformTrack
+        );
         this.hasEnoughData = this.recommendations.length > 0;
+      }
+
+      // 如果推荐为空，尝试加载官方推荐作为兜底 (§9.3)
+      if (this.recommendations.length === 0) {
+        await this.loadFallbackRecommendations();
       }
 
       if (profileResult && profileResult.userId) {
@@ -233,6 +250,106 @@ export default {
 
       this.loading = false;
       NProgress.done();
+    },
+
+    /**
+     * §9.3 冷启动兜底 - 加载网易云官方推荐
+     * 优先级：1. 推荐歌单 → 2. 热门新歌 → 3. 随机精选
+     */
+    async loadFallbackRecommendations() {
+      try {
+        // 优先级1: 网易云推荐歌单
+        const res = await recommendPlaylist({ limit: 10 });
+        if (res.result && res.result.length > 0) {
+          // 取第一个歌单的前20首歌作为兜底推荐
+          const playlistId = res.result[0].id;
+          const playlistDetail = await this.getPlaylistDetail(playlistId);
+          if (playlistDetail && playlistDetail.tracks) {
+            this.recommendations = playlistDetail.tracks
+              .slice(0, 20)
+              .map(t => ({
+                id: t.id,
+                name: t.name,
+                al: {
+                  id: t.al?.id || 0,
+                  name: t.al?.name || '',
+                  picUrl: t.al?.picUrl || '',
+                },
+                ar: t.ar
+                  ? t.ar.map(a => ({ id: a.id || 0, name: a.name }))
+                  : [],
+                dt: t.dt || t.duration || 0,
+              }));
+            this.hasEnoughData = true;
+            return;
+          }
+        }
+      } catch (e) {
+        console.warn('Fallback 1 (personalized) failed:', e);
+      }
+
+      try {
+        // 优先级2: 热门新歌
+        const res = await topSong(0); // 0=全部地区
+        if (res.data && res.data.length > 0) {
+          this.recommendations = res.data.slice(0, 20).map(t => ({
+            id: t.id,
+            name: t.name,
+            al: {
+              id: t.al?.id || 0,
+              name: t.al?.name || '',
+              picUrl: t.al?.picUrl || '',
+            },
+            ar: t.ar ? t.ar.map(a => ({ id: a.id || 0, name: a.name })) : [],
+            dt: t.dt || t.duration || 0,
+          }));
+          this.hasEnoughData = true;
+          return;
+        }
+      } catch (e) {
+        console.warn('Fallback 2 (topSong) failed:', e);
+      }
+
+      // 优先级3: 已有喜欢歌曲时直接使用
+      if (this.likedSongsCount > 0) {
+        this.recommendations = this.liked.songs.slice(0, 20);
+        this.hasEnoughData = true;
+      }
+    },
+
+    /**
+     * 获取歌单详情
+     */
+    async getPlaylistDetail(playlistId) {
+      try {
+        const res = await fetch(
+          `/api/playlist/detail?id=${playlistId}&timestamp=${Date.now()}`
+        );
+        const data = await res.json();
+        return data.playlist || null;
+      } catch (e) {
+        console.warn('Failed to get playlist detail:', e);
+        return null;
+      }
+    },
+    // Transform backend track format to frontend TrackList format
+    // Backend: { id, name, artist, album, duration, picUrl, ... }
+    // Frontend: { id, name, al: { id, name, picUrl }, ar: [{ id, name }], dt: ms, ... }
+    transformTrack(track) {
+      return {
+        id: track.id,
+        name: track.name || `Song ${track.id}`,
+        al: {
+          id: track.albumId || 0,
+          name: track.album || '',
+          picUrl: track.picUrl || '',
+        },
+        ar: track.artist
+          ? [{ id: track.artistId || 0, name: track.artist }]
+          : [],
+        dt: (track.duration || 0) * 1000, // Convert seconds to milliseconds
+        ...track, // Preserve original fields
+      };
     },
   },
 };
@@ -252,6 +369,7 @@ export default {
       font-size: 48px;
       font-weight: 700;
       margin-bottom: 12px;
+      color: var(--color-text);
     }
 
     .subtitle {

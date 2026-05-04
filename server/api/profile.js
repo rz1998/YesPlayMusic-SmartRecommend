@@ -115,6 +115,7 @@ router.post('/sync-songs', (req, res) => {
     genre: s.genre,
     publishTime: s.publishTime,
     name: s.name || s.songName,
+    picUrl: s.picUrl || (s.al && s.al.picUrl),
     // 扩展维度
     mood: s.mood,
     language: s.language,

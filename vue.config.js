@@ -70,7 +70,7 @@ module.exports = {
       .end()
       .use('esbuild-loader')
       .loader('esbuild-loader')
-      .options({ target: 'es2015', format: "cjs" })
+      .options({ target: 'es2015', format: 'cjs' })
       .end();
 
     // LimitChunkCountPlugin 可以通过合并块来对块进行后期处理。用以解决 chunk 包太多的问题
@@ -92,10 +92,12 @@ module.exports = {
         copyright: 'Copyright © ai-musicplayer',
         // version 从环境变量 ARTIFACT_VERSION 读取（CI自动设置，去掉v前缀）
         extraMetadata: {
-          version: process.env.ARTIFACT_VERSION ? process.env.ARTIFACT_VERSION.replace(/^v/, '') : require('./package.json').version,
+          version: process.env.ARTIFACT_VERSION
+            ? process.env.ARTIFACT_VERSION.replace(/^v/, '')
+            : require('./package.json').version,
         },
         // compression: "maximum", // 机器好的可以打开，配置压缩，开启后会让 .AppImage 格式的客户端启动缓慢
-        asar: true,
+        asar: false,
         publish: [
           {
             provider: 'github',
@@ -188,7 +190,7 @@ module.exports = {
           .end()
           .use('esbuild-loader')
           .loader('esbuild-loader')
-          .options({ target: 'es2015', format: "cjs" })
+          .options({ target: 'es2015', format: 'cjs' })
           .end();
       },
       // 渲染线程的配置文件
@@ -205,7 +207,6 @@ module.exports = {
       // mainProcessFile: 'src/main.js',
       // mainProcessArgs: []
       // afterPack: moved to scripts/afterPack.js (electron-builder.yml afterPack hook)
-
     },
   },
 };

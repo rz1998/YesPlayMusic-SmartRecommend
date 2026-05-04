@@ -26,7 +26,7 @@
     <br />
     <a href="https://music.qier222.com" target="blank"><strong>🌎 访问DEMO</strong></a>&nbsp;&nbsp;|&nbsp;&nbsp;
     <a href="#%EF%B8%8F-安装" target="blank"><strong>📦️ 下载安装包</strong></a>&nbsp;&nbsp;|&nbsp;&nbsp;
-    <a href="https://t.me/yesplaymusic" target="blank"><strong>💬 加入交流群</strong></a>
+    <a href="https://t.me/ai_musicplayer" target="blank"><strong>💬 加入交流群</strong></a>
     <br />
     <br />
   </p>
@@ -460,14 +460,14 @@ cd server && npm start
 
 ## 📦️ 安装
 
-Electron 版本由 [@hawtim](https://github.com/hawtim) 和 [@qier222](https://github.com/qier222) 适配并维护，支持 macOS、Windows、Linux。
+Electron 版本由 [@rz1998](https://github.com/rz1998) 维护，支持 macOS、Windows、Linux。
 
-访问本项目的 [Releases](https://github.com/qier222/ai-musicplayer/releases)
+访问本项目的 [Releases](https://github.com/rz1998/ai-musicplayer/releases)
 页面下载安装包。
 
-- macOS 用户可以通过 Homebrew 来安装：`brew install --cask yesplaymusic`
+- macOS 用户可以通过 Homebrew 来安装：`brew install --cask ai-musicplayer`
 
-- Windows 用户可以通过 Scoop 来安装：`scoop install extras/yesplaymusic`
+- Windows 用户可以通过 Scoop 来安装：`scoop install ai-musicplayer`
 
 ## 同类项目（排名无先后）
 

@@ -265,6 +265,8 @@ ai-musicplayer/
 
 ## 5. API 参考
 
+> **路由架构**：推荐服务（3001）由前端**直连**（`VUE_APP_RECOMMENDER_HOST=http://127.0.0.1:3001`），不经过 Express 代理。Express（27232）仅处理静态文件 + 网易云 API（10754）代理，避免 `/api/*` 路径冲突。
+
 ### 事件记录
 
 > **说明**：
@@ -464,65 +466,50 @@ return weights === 0 ? 0 : score / weights;  // 归一化
               提示用户多点赞完善偏好
 ```
 
-### 9.3 冷启动兜底 ⚠️[部分待实现]
+### 9.3 冷启动兜底 ✅
 
-**全部失败时的兜底策略：**
+**全部失败时的兜底策略（`smartRecommend.vue`）：**
 
-| 优先级 | 兜底内容 | 说明 |
+| 优先级 | 兜底内容 | 实现 |
 |--------|---------|------|
-| 1 | 网易云推荐歌单 | `/personalized` 返回的官方推荐 |
-| 2 | 热门新歌 | 网易云新歌榜 |
-| 3 | 随机精选 | 从候选池随机选取 10 首 |
+| 1 | 网易云推荐歌单 | ✅ `loadFallbackRecommendations()` → `/personalized?limit=10` → 取第一个歌单详情 |
+| 2 | 热门新歌 | ✅ `topSong(0)` 获取全部地区热门新歌 |
+| 3 | 随机精选 | ✅ 直接使用用户喜欢的歌曲列表作为兜底 |
 
-> ⚠️ 当前 `smartRecommend.vue` 在 syncSongs 失败后无明确 UI 提示，也未切换到官方推荐歌单。"根据你的口味调整中" 等提示文案**尚未实现**。
+**兜底触发条件**：推荐结果为空时自动触发
 
-### 9.4 离线补偿机制 ⚠️[待实现]
+### 9.4 离线补偿机制 ✅
 
-如果 skip/play 事件在离线时触发：
+**实现位置**：`src/mixins/playBehaviorTracker.js`
 
-```javascript
-// 事件队列（前端本地缓存）
-const eventQueue = [];
+**机制**：
+- **本地队列**：事件先尝试发送，失败后存入 `localStorage`（key: `ypm_event_queue`）
+- **自动重试**：每 5 秒检查网络状态，在线时自动 flush 队列（FIFO）
+- **网络监听**：监听 `online`/`offline` 事件，联网时立即触发 flush
+- **队列限制**：最多 100 条，超出后丢弃最旧事件
 
-// 上报函数
-async function flushEvents() {
-  while (eventQueue.length > 0) {
-    const event = eventQueue.shift();
-    try {
-      await sendEvent(event);
-    } catch (e) {
-      // 发送失败，重新放回队列
-      eventQueue.unshift(event);
-      await sleep(5000); // 5秒后重试
-    }
-  }
-}
-```
-
-- 断网时事件存入本地队列
-- 网络恢复后自动重试
-- 最多缓存 100 条事件，超出后丢弃最旧事件
-
-> ⚠️ 该功能**尚未实现**，当前 skip/play 事件在断网时**直接丢弃**，不会重试上报。
+**事件类型**：play / skip / like / unlike
 
 ---
 
-## 10. 效果评估 ⚠️[待实现]
+## 10. 效果评估 ✅
 
-> ⚠️ 以下评估指标和监控功能**尚未实现**，目前仅有基础日志记录。
+> ✅ 核心指标已实现，存储在推荐结果的 `meta.metrics` 中。
 
 ### 10.1 离线评估指标
 
-| 指标 | 公式 | 目标 |
-|------|------|------|
-| **Precision@K** | `#(recommended ∩ relevant) / K` | K=10 时 ≥ 0.3 |
-| **Recall@K** | `#(recommended ∩ relevant) / #relevant` | K=50 时 ≥ 0.15 |
-| **Coverage** | `#(recommended songs) / #all songs` | ≥ 5% |
-| **Skip Rate** | `#skip / #total_recommended` | < 30% |
-| **Like Rate** | `#like / #total_recommended` | > 10% |
-| **Avg Listen Ratio** | `sum(listen_ratio) / #songs` | > 0.6 |
+| 指标 | 公式 | 目标 | 实现状态 |
+|------|------|------|---------|
+| **Precision@K** | `#(recommended ∩ relevant) / K` | K=10 时 ≥ 0.3 | ✅ `meta.metrics.precisionK` |
+| **Recall@K** | `#(recommended ∩ relevant) / #relevant` | K=50 时 ≥ 0.15 | ✅ `meta.metrics.recallK` |
+| **Skip Rate** | `#skip / #total_recommended` | < 30% | ✅ `meta.metrics.skipRate` |
+| **Like Rate** | `#like / #total_recommended` | > 10% | ✅ `meta.metrics.likeRate` |
+| **Avg Listen Ratio** | `avg_play_duration / 210s` | > 0.6 | ✅ `meta.metrics.avgListenRatio` |
+| **Coverage** | `#(recommended songs) / #all songs` | ≥ 5% | ⚠️ 待实现 |
 
 > **`relevant` 集合定义**：基于用户历史行为构建——将用户历史 liked + 完整播放（completed=true）的歌曲视为 relevant。每次推荐结果中出现在 relevant 中的比例即 Precision@K。
+
+**实现位置**：`server/api/recommend.js` → `computeMetrics()`
 
 ### 10.2 在线监控指标
 
@@ -546,6 +533,30 @@ async function flushEvents() {
 ---
 
 ## 11. 变更记录
+
+#### 2026-04-27 23:15（第十二次审查后）
+
+#### 新功能实现
+- ⭐ **§9.3 冷启动兜底** - `smartRecommend.vue` 新增 `loadFallbackRecommendations()` 方法，优先级：推荐歌单 → 热门新歌 → 喜欢歌曲 ✅
+- ⭐ **§9.4 离线补偿机制** - `playBehaviorTracker.js` 实现事件队列，本地存储 + 自动重试 + 网络监听 ✅
+- ⭐ **§10 效果评估指标** - `recommend.js` 新增 `computeMetrics()` 函数，计算 Precision@K/Recall@K/Skip Rate/Like Rate/AvgListenRatio ✅
+
+#### Bug 修复
+- 🔧 **离线事件丢失** - 断网时事件直接丢弃，改为队列缓存 + 恢复后重试 ✅
+- 🔧 **推荐为空时无兜底** - 添加三级兜底策略，确保用户始终能看到内容 ✅
+
+#### 需求文档同步
+- ✅ §9.3 标记为已实现（部分指标待后续）
+- ✅ §9.4 标记为已实现
+- ✅ §10 标记为已实现（Coverage 除外）
+
+#### 2026-04-26 21:37（第十一次审查后）
+
+#### 架构调整
+- 🔧 **/api/recommend/songs 路由冲突** - 之前的路由优先级方案（`/api/recommend` 优先于 `/api`）无法解决 Express `use()` 前缀匹配固有的子路径冲突问题。采用**方案 B**：前端直连 3001（`VUE_APP_RECOMMENDER_HOST=http://127.0.0.1:3001`），Express 仅处理静态文件和网易云 API 代理，彻底避免路由冲突 ✅
+
+#### 需求文档同步
+- ✅ 更新 §5 API 参考 路由架构说明：前端直连 3001，Express 代理仅服务于网易云 API
 
 #### 2026-04-26 20:34（第十次审查后）
 
