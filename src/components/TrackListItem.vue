@@ -173,10 +173,10 @@ export default {
       return this.type === 'playlist';
     },
     isLiked() {
-      return this.$parent.liked.songs.includes(this.track?.id);
+      return this.$parent?.liked?.songs?.includes(this.track?.id) || false;
     },
     isPlaying() {
-      return this.$store.state.player.currentTrack.id === this.track?.id;
+      return this.$store.state.player?.currentTrack?.id === this.track?.id;
     },
     trackClass() {
       let trackClass = [this.type];

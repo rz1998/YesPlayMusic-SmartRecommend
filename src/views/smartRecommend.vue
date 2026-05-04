@@ -6,12 +6,8 @@
 
       <!-- 操作按钮 -->
       <div v-if="recommendations.length > 0" class="header-actions">
-        <button class="play-all-btn" @click="playAll">
-          ▶ 播放全部
-        </button>
-        <button class="shuffle-btn" @click="shufflePlay">
-          🔀 随机播放
-        </button>
+        <button class="play-all-btn" @click="playAll"> ▶ 播放全部 </button>
+        <button class="shuffle-btn" @click="shufflePlay"> 🔀 随机播放 </button>
         <button
           class="refresh-btn"
           :disabled="loading"
@@ -304,7 +300,12 @@ export default {
     playAll() {
       if (this.recommendations.length === 0) return;
       const trackIDs = this.recommendations.map(t => t.id || t.songId);
-      this.player.replacePlaylist(trackIDs, '/smart-recommend', 'url', trackIDs[0]);
+      this.player.replacePlaylist(
+        trackIDs,
+        '/smart-recommend',
+        'url',
+        trackIDs[0]
+      );
     },
 
     /**
@@ -312,9 +313,16 @@ export default {
      */
     shufflePlay() {
       if (this.recommendations.length === 0) return;
-      const shuffled = [...this.recommendations].sort(() => Math.random() - 0.5);
+      const shuffled = [...this.recommendations].sort(
+        () => Math.random() - 0.5
+      );
       const trackIDs = shuffled.map(t => t.id || t.songId);
-      this.player.replacePlaylist(trackIDs, '/smart-recommend', 'url', trackIDs[0]);
+      this.player.replacePlaylist(
+        trackIDs,
+        '/smart-recommend',
+        'url',
+        trackIDs[0]
+      );
     },
 
     /**
