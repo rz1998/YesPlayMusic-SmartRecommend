@@ -496,7 +496,7 @@ export default class {
     ifUnplayableThen = UNPLAYABLE_CONDITION.PLAY_NEXT_TRACK,
     skipScrobble = false
   ) {
-    if (autoplay && this._currentTrack.name && !skipScrobble) {
+    if (autoplay && this._currentTrack?.name && !skipScrobble) {
       this._scrobble(this.currentTrack, this._howler?.seek());
     }
     return getTrackDetail(id).then(data => {

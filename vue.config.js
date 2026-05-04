@@ -9,7 +9,9 @@ module.exports = {
   productionSourceMap: false,
   devServer: {
     disableHostCheck: true,
-    port: process.env.DEV_SERVER_PORT || 8080,
+    port: process.env.DEV_SERVER_PORT || 6789,
+    // HMR public host - configured via DEV_SERVER_PUBLIC env
+    public: process.env.DEV_SERVER_PUBLIC || 'localhost:6789',
     proxy: {
       // Recommender API routes → recommender server (3001)
       // NOTE: pathRewrite should NOT strip /api prefix - recommender server uses same /api/* routes

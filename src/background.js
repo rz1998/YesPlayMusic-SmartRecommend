@@ -175,7 +175,12 @@ class Background {
           });
         });
     });
-    this.expressApp = expressApp.listen(27232, '127.0.0.1');
+    this.expressApp = expressApp.listen(27232, '127.0.0.1', () => {
+      log('Express server started on port 27232');
+    });
+    this.expressApp.on('error', (err) => {
+      log(`Express server error: ${err.message}`);
+    });
   }
 
   createWindow() {
@@ -269,6 +274,16 @@ class Background {
           ? 'http://127.0.0.1:27232/#/library'
           : 'http://127.0.0.1:27232'
       );
+      // Log any load errors
+      this.window.webContents.on('did-fail-load', (event, errorCode, errorDesc) => {
+        log(`Window failed to load: ${errorCode} - ${errorDesc}`);
+      });
+      this.window.webContents.on('crashed', () => {
+        log('Renderer process crashed!');
+      });
+      this.window.webContents.on('render-process-gone', (event, details) => {
+        log(`Render process gone: ${details.reason}`);
+      });
     }
   }
 

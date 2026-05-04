@@ -30,6 +30,7 @@
           <router-link :to="getTitleLink(item)">{{ item.name }}</router-link>
         </div>
         <div v-if="type !== 'artist' && subText !== 'none'" class="info">
+          <!-- eslint-disable-next-line vue/no-v-html -->
           <span v-html="getSubText(item)"></span>
         </div>
       </div>

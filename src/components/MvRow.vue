@@ -20,7 +20,10 @@
         <div class="title">
           <router-link :to="'/mv/' + getID(mv)">{{ getTitle(mv) }}</router-link>
         </div>
-        <div class="artist" v-html="getSubtitle(mv)"></div>
+        <div class="artist">
+          <!-- eslint-disable-next-line vue/no-v-html -->
+          <span v-html="getSubtitle(mv)"></span>
+        </div>
       </div>
     </div>
   </div>
@@ -30,7 +33,10 @@
 export default {
   name: 'CoverVideo',
   props: {
-    mvs: Array,
+    mvs: {
+      type: Array,
+      default: () => [],
+    },
     subtitle: {
       type: String,
       default: 'artist',

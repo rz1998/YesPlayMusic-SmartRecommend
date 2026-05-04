@@ -1,9 +1,7 @@
 import clc from 'cli-color';
-import checkAuthToken from '../utils/checkAuthToken';
 import server from '@neteaseapireborn/api/server';
 import { createServer } from 'http';
 import path from 'path';
-import { app } from 'electron';
 // server.js uses CommonJS (require), loaded via absolute path to bypass webpack externals
 // __dirname in packaged app is the directory of background.js = resources/app/
 // server.js is at resources/app/server/server.js

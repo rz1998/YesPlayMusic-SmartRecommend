@@ -11,9 +11,16 @@ win:
     - target: portable
       arch:
         - x64
+    - target: nsis
+      arch:
+        - x64
   icon: build/icons/icon.ico
 portable:
   artifactName: ai-musicplayer-${version}.exe
+nsis:
+  artifactName: ai-musicplayer Setup ${version}.exe
+  oneClick: false
+  allowToChangeInstallationDirectory: true
 electronDownload:
   mirror: https://npmmirror.com/mirrors/electron/
 afterPack: ./scripts/afterPackNoAsar.js
