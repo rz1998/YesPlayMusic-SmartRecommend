@@ -99,7 +99,6 @@ exports.default = async function afterPack(context) {
   const REQUIRED = [
     '@neteaseapireborn/api',
     '@unblockneteasemusic/server',
-    '@unblockneteasemusic/rust-napi-win32-x64-msvc',
     'express', 'ws', 'axios', 'cli-color', 'compression',
     'express-http-proxy', 'electron-store', 'electron-log',
     'electron-updater', 'electron-devtools-installer', 'body-parser',
@@ -107,6 +106,31 @@ exports.default = async function afterPack(context) {
     'md5', 'music-metadata', 'node-forge', 'pac-proxy-agent',
     'qrcode', 'safe-decode-uri-component', 'tunnel', 'xml2js', 'yargs',
   ];
+
+  // ── 2.5 下载 Windows 原生模块（跨平台构建需要）─────────────────────
+  const WIN_NATIVE_MODULES = [
+    '@unblockneteasemusic/rust-napi-win32-x64-msvc',
+  ];
+
+  for (const mod of WIN_NATIVE_MODULES) {
+    const destPath = path.join(appDir, 'node_modules', mod);
+    if (!fs.existsSync(destPath)) {
+      console.log(`[afterPack] Downloading Windows native module: ${mod}...`);
+      try {
+        const tmpDir = path.join(os.tmpdir(), `eb-${Date.now()}`);
+        fs.mkdirSync(tmpDir, { recursive: true });
+        execSync(`npm pack ${mod} --pack-destination ${tmpDir}`, { stdio: 'pipe' });
+        const tarball = fs.readdirSync(tmpDir).find(f => f.endsWith('.tgz'));
+        if (tarball) {
+          execSync(`mkdir -p ${destPath} && tar -xzf ${path.join(tmpDir, tarball)} -C ${destPath} --strip-components=1`, { stdio: 'pipe' });
+          console.log(`  + ${mod}`);
+        }
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+      } catch (e) {
+        console.log(`[afterPack] Warning: Failed to download ${mod}: ${e.message}`);
+      }
+    }
+  }
 
   function getAllDeps(mod, seen = new Set()) {
     if (seen.has(mod)) return seen;

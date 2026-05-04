@@ -77,7 +77,7 @@ export default class {
     this._shuffledList = []; // 被随机打乱的播放列表，随机播放模式下会使用此播放列表
     this._shuffledCurrent = 0; // 当前播放歌曲在随机列表里面的index
     this._playlistSource = { type: 'album', id: 123 }; // 当前播放列表的信息
-    this._currentTrack = { id: 86827685 }; // 当前播放歌曲的详细信息
+    this._currentTrack = { id: 0 }; // 当前播放歌曲的详细信息（0表示无效ID）
     this._playNextList = []; // 当这个list不为空时，会优先播放这个list的歌
     this._isPersonalFM = false; // 是否是私人FM模式
     this._personalFMTrack = { id: 0 }; // 私人FM当前歌曲
@@ -193,7 +193,7 @@ export default class {
     return this._personalFMTrack;
   }
   get currentTrackDuration() {
-    const trackDuration = this._currentTrack.dt || 1000;
+    const trackDuration = this._currentTrack?.dt || 1000;
     let duration = ~~(trackDuration / 1000);
     return duration > 1 ? duration - 1 : duration;
   }
@@ -209,7 +209,9 @@ export default class {
     }
   }
   get isCurrentTrackLiked() {
-    return store.state.liked.songs.includes(this.currentTrack.id);
+    return this.currentTrack?.id
+      ? store.state.liked.songs.includes(this.currentTrack.id)
+      : false;
   }
 
   _init() {
@@ -217,10 +219,22 @@ export default class {
     this._howler?.volume(this.volume);
 
     if (this._enabled) {
-      // 恢复当前播放歌曲
-      this._replaceCurrentTrack(this.currentTrackID, false).then(() => {
-        this._howler?.seek(localStorage.getItem('playerCurrentTrackTime') ?? 0);
-      }); // update audio source and init howler
+      // 恢复当前播放歌曲（只有当歌曲ID有效时才恢复）
+      const trackId = this.currentTrackID;
+      if (trackId && trackId > 0) {
+        this._replaceCurrentTrack(trackId, false)
+          .then(() => {
+            this._howler?.seek(
+              localStorage.getItem('playerCurrentTrackTime') ?? 0
+            );
+          })
+          .catch(() => {
+            // 如果恢复失败，清除无效的播放状态
+            console.warn('Failed to restore last track, clearing state');
+            localStorage.removeItem('player');
+            localStorage.removeItem('playerCurrentTrackTime');
+          });
+      }
       this._initMediaSession();
     }
 
@@ -368,7 +382,11 @@ export default class {
       if (this._currentTrack.name) {
         setTitle(this._currentTrack);
       }
-      setTrayLikeState(store.state.liked.songs.includes(this.currentTrack.id));
+      setTrayLikeState(
+        this.currentTrack?.id
+          ? store.state.liked.songs.includes(this.currentTrack.id)
+          : false
+      );
     }
     this.setOutputDevice();
   }
@@ -500,7 +518,11 @@ export default class {
       this._scrobble(this.currentTrack, this._howler?.seek());
     }
     return getTrackDetail(id).then(data => {
-      const track = data.songs[0];
+      const track = data?.songs?.[0];
+      if (!track) {
+        console.warn('Track not found or unavailable, id:', id);
+        return Promise.reject(new Error('Track not found'));
+      }
       this._currentTrack = track;
       this._updateMediaSessionMetaData(track);
       return this._replaceCurrentTrackAudio(
@@ -604,6 +626,9 @@ export default class {
     if ('mediaSession' in navigator === false) {
       return;
     }
+    if (!track?.ar) {
+      return;
+    }
     let artists = track.ar.map(a => a.name);
     // Fallback image if picUrl is invalid
     const fallbackImg =
@@ -613,9 +638,9 @@ export default class {
         ? track.al.picUrl
         : fallbackImg;
     const metadata = {
-      title: track.name,
-      artist: artists.join(','),
-      album: track.al.name,
+      title: track.name || 'Unknown',
+      artist: artists.join(',') || 'Unknown',
+      album: track.al?.name || 'Unknown',
       artwork: [
         {
           src: picUrl + '?param=224y224',
@@ -665,7 +690,7 @@ export default class {
     }
     if ('setPositionState' in navigator.mediaSession) {
       navigator.mediaSession.setPositionState({
-        duration: ~~(this.currentTrack.dt / 1000),
+        duration: ~~((this.currentTrack?.dt || 0) / 1000),
         playbackRate: 1.0,
         position: this.seek(),
       });
@@ -849,11 +874,11 @@ export default class {
       this._playDiscordPresence(this._currentTrack, this.seek());
       if (store.state.lastfm.key !== undefined) {
         trackUpdateNowPlaying({
-          artist: this.currentTrack.ar[0].name,
-          track: this.currentTrack.name,
-          album: this.currentTrack.al.name,
-          trackNumber: this.currentTrack.no,
-          duration: ~~(this.currentTrack.dt / 1000),
+          artist: this.currentTrack?.ar?.[0]?.name || 'Unknown',
+          track: this.currentTrack?.name || 'Unknown',
+          album: this.currentTrack?.al?.name || 'Unknown',
+          trackNumber: this.currentTrack?.no || 0,
+          duration: ~~((this.currentTrack?.dt || 0) / 1000),
         });
       }
     });
@@ -906,10 +931,16 @@ export default class {
     };
     if (this.shuffle) this._shuffleTheList(autoPlayTrackID);
     if (autoPlayTrackID === 'first') {
-      this._replaceCurrentTrack(this.list[0]);
+      this._replaceCurrentTrack(this.list[0]).catch(() => {
+        // 如果第一首歌无效，尝试下一首
+        this._playNextTrack(false);
+      });
     } else {
       this.current = this.list.indexOf(autoPlayTrackID);
-      this._replaceCurrentTrack(autoPlayTrackID);
+      this._replaceCurrentTrack(autoPlayTrackID).catch(() => {
+        // 如果指定歌曲无效，尝试下一首
+        this._playNextTrack(false);
+      });
     }
   }
   playAlbumByID(id, trackID = 'first') {
@@ -975,7 +1006,9 @@ export default class {
 
   sendSelfToIpcMain() {
     if (process.env.IS_ELECTRON !== true) return false;
-    let liked = store.state.liked.songs.includes(this.currentTrack.id);
+    let liked = this.currentTrack?.id
+      ? store.state.liked.songs.includes(this.currentTrack.id)
+      : false;
     ipcRenderer?.send('player', {
       playing: this.playing,
       likedCurrentTrack: liked,

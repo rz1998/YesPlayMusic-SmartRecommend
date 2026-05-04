@@ -178,7 +178,7 @@ class Background {
     this.expressApp = expressApp.listen(27232, '127.0.0.1', () => {
       log('Express server started on port 27232');
     });
-    this.expressApp.on('error', (err) => {
+    this.expressApp.on('error', err => {
       log(`Express server error: ${err.message}`);
     });
   }
@@ -275,9 +275,12 @@ class Background {
           : 'http://127.0.0.1:27232'
       );
       // Log any load errors
-      this.window.webContents.on('did-fail-load', (event, errorCode, errorDesc) => {
-        log(`Window failed to load: ${errorCode} - ${errorDesc}`);
-      });
+      this.window.webContents.on(
+        'did-fail-load',
+        (event, errorCode, errorDesc) => {
+          log(`Window failed to load: ${errorCode} - ${errorDesc}`);
+        }
+      );
       this.window.webContents.on('crashed', () => {
         log('Renderer process crashed!');
       });
@@ -500,7 +503,8 @@ class Background {
     });
 
     if (!isMac) {
-      app.on('second-instance', (e, cl, wd) => {
+      // eslint-disable-next-line no-unused-vars
+      app.on('second-instance', (_e, _cl, _wd) => {
         if (this.window) {
           this.window.show();
           if (this.window.isMinimized()) {
