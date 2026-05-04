@@ -170,11 +170,21 @@ export default {
         needsRefresh = false;
       }
 
-      // 并行加载推荐结果和用户画像
-      const [recResult, profileResult] = await Promise.all([
-        getRecommendations(this.userId, 30, true, needsRefresh),
-        getUserProfile(this.userId),
-      ]);
+      // 并行加载推荐结果和用户画像（带错误处理）
+      let recResult = null;
+      let profileResult = null;
+
+      try {
+        recResult = await getRecommendations(this.userId, 30, true, needsRefresh);
+      } catch (e) {
+        console.warn('Failed to get recommendations:', e);
+      }
+
+      try {
+        profileResult = await getUserProfile(this.userId);
+      } catch (e) {
+        console.warn('Failed to get user profile:', e);
+      }
 
       // 解析推荐结果
       if (recResult && recResult.recommendations !== undefined) {
