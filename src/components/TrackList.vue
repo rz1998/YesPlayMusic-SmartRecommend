@@ -217,7 +217,12 @@ export default {
       } else if (this.dbclickTrackFunc === 'smartRecommend') {
         // Smart Recommend: play the entire recommendations list
         let trackIDs = this.tracks.map(t => t.id || t.songId);
-        this.player.replacePlaylist(trackIDs, '/smart-recommend', 'url', trackID);
+        this.player.replacePlaylist(
+          trackIDs,
+          '/smart-recommend',
+          'url',
+          trackID
+        );
       }
     },
     playThisListDefault(trackID) {

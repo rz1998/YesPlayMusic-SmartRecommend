@@ -3,13 +3,28 @@
     <div class="header">
       <div class="title">🧠 智能推荐</div>
       <div class="subtitle">根据你的喜好定制 · 越用越懂你</div>
-      <button
-        class="refresh-btn"
-        :disabled="loading"
-        @click="refreshRecommendations"
-      >
-        🔄 刷新推荐
-      </button>
+
+      <!-- 操作按钮 -->
+      <div v-if="recommendations.length > 0" class="header-actions">
+        <button class="play-all-btn" @click="playAll">
+          ▶ 播放全部
+        </button>
+        <button class="shuffle-btn" @click="shufflePlay">
+          🔀 随机播放
+        </button>
+        <button
+          class="refresh-btn"
+          :disabled="loading"
+          @click="refreshRecommendations"
+        >
+          🔄 刷新
+        </button>
+      </div>
+    </div>
+
+    <!-- 操作提示 -->
+    <div v-if="recommendations.length > 0" class="hint-text">
+      💡 双击任意歌曲播放 · 播放行为会帮助优化推荐
     </div>
 
     <div v-if="profile" class="stats">
@@ -284,6 +299,25 @@ export default {
     },
 
     /**
+     * 播放全部推荐
+     */
+    playAll() {
+      if (this.recommendations.length === 0) return;
+      const trackIDs = this.recommendations.map(t => t.id || t.songId);
+      this.player.replacePlaylist(trackIDs, '/smart-recommend', 'url', trackIDs[0]);
+    },
+
+    /**
+     * 随机播放推荐
+     */
+    shufflePlay() {
+      if (this.recommendations.length === 0) return;
+      const shuffled = [...this.recommendations].sort(() => Math.random() - 0.5);
+      const trackIDs = shuffled.map(t => t.id || t.songId);
+      this.player.replacePlaylist(trackIDs, '/smart-recommend', 'url', trackIDs[0]);
+    },
+
+    /**
      * §9.3 冷启动兜底 - 加载网易云官方推荐
      * 优先级：1. 推荐歌单 → 2. 热门新歌 → 3. 随机精选
      */
@@ -449,7 +483,7 @@ export default {
     display: flex;
     flex-direction: column;
     align-items: center;
-    margin-bottom: 48px;
+    margin-bottom: 24px;
 
     .title {
       font-size: 48px;
@@ -463,34 +497,71 @@ export default {
       color: var(--color-text);
     }
 
-    .refresh-btn {
+    .header-actions {
+      display: flex;
+      gap: 12px;
       margin-top: 16px;
-      padding: 8px 16px;
-      background: var(--color-primary-bg);
-      color: var(--color-primary);
-      border: 1px solid var(--color-primary);
-      border-radius: 20px;
-      cursor: pointer;
-      font-size: 14px;
-      transition: all 0.2s;
 
-      &:hover:not(:disabled) {
+      button {
+        padding: 8px 20px;
+        border-radius: 20px;
+        cursor: pointer;
+        font-size: 14px;
+        transition: all 0.2s;
+        border: none;
+      }
+
+      .play-all-btn {
         background: var(--color-primary);
         color: #fff;
+
+        &:hover {
+          opacity: 0.85;
+        }
       }
 
-      &:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
+      .shuffle-btn {
+        background: var(--color-primary-bg);
+        color: var(--color-primary);
+        border: 1px solid var(--color-primary);
+
+        &:hover {
+          background: var(--color-primary);
+          color: #fff;
+        }
+      }
+
+      .refresh-btn {
+        background: var(--color-primary-bg);
+        color: var(--color-text);
+        border: 1px solid var(--color-border);
+
+        &:hover:not(:disabled) {
+          border-color: var(--color-primary);
+          color: var(--color-primary);
+        }
+
+        &:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
       }
     }
+  }
+
+  .hint-text {
+    text-align: center;
+    font-size: 13px;
+    color: var(--color-text);
+    opacity: 0.6;
+    margin-bottom: 24px;
   }
 
   .stats {
     display: flex;
     justify-content: center;
     gap: 48px;
-    margin-bottom: 48px;
+    margin-bottom: 32px;
 
     .stat-item {
       text-align: center;
