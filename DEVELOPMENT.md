@@ -228,14 +228,67 @@ export function getMP3(id) {
 
 ### 6. 环境变量
 
-| 变量名 | 开发环境值 | 说明 |
-|--------|-----------|------|
+#### 6.1 开发环境 (`.env.development`)
+
+| 变量名 | 值 | 说明 |
+|--------|-----|------|
 | `DEV_SERVER_PORT` | 6789 | 前端开发服务器端口 |
-| `VUE_APP_NETEASE_API_URL` | `/api` | 网易云 API baseURL（走 proxy） |
-| `VUE_APP_RECOMMENDER_HOST` | `http://localhost:3001` | 推荐服务地址 |
+| `VUE_APP_NETEASE_API_URL` | `/api` | 网易云 API baseURL（开发用相对路径，走 Vue Proxy） |
+| `VUE_APP_RECOMMENDER_HOST` | `http://localhost:3001` | 推荐服务地址（仅 Electron 模式使用） |
 | `VUE_APP_ELECTRON_API_URL_DEV` | `http://localhost:10754` | Electron 开发环境 API |
 
-### 7. 开发启动
+#### 6.2 生产环境 (`.env.production`)
+
+| 变量名 | 值 | 说明 |
+|--------|-----|------|
+| `VUE_APP_NETEASE_API_URL` | `/api` | 网易云 API baseURL（走 Vue Proxy） |
+| `VUE_APP_ELECTRON_API_URL` | `http://127.0.0.1:27232/api` | Electron 生产环境网易云 API |
+| `VUE_APP_RECOMMENDER_HOST` | `http://127.0.0.1:3001` | 推荐服务地址（Electron 模式直连） |
+
+### 7. 路径解析逻辑
+
+推荐服务 API (`src/api/recommend.js`) 根据运行环境自动选择路径：
+
+```javascript
+const getRecommenderHost = () => {
+  if (process.env.IS_ELECTRON) {
+    // Electron 打包模式：直连本地服务
+    return process.env.VUE_APP_RECOMMENDER_HOST || 'http://localhost:3001';
+  }
+  // 浏览器开发模式：通过 Vue CLI Proxy 转发
+  return '';
+};
+```
+
+| 运行环境 | 路径方式 | 实际地址 |
+|----------|----------|----------|
+| **浏览器开发** | 相对路径 | `/api/recommend` → Vue Proxy → `:3001` |
+| **Electron 打包** | 绝对路径 | `http://127.0.0.1:3001/api/recommend` |
+
+### 8. Electron 打包架构
+
+Electron 打包后，后端服务随应用自动启动，无需额外配置：
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    Electron App                          │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐ │
+│  │   Frontend   │  │  Recommender │  │  Netease API │ │
+│  │   (Vue SPA)  │  │   :3001      │  │   :10754     │ │
+│  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘ │
+│         │                  │                   │         │
+│         └──────────────────┴───────────────────┘         │
+│                    127.0.0.1                            │
+└─────────────────────────────────────────────────────────┘
+```
+
+**启动顺序**：
+1. Electron 主进程启动
+2. `services.js` 启动 Netease API (`:10754`)
+3. `services.js` 启动 Recommender Server (`:3001`)
+4. Frontend 通过 `http://127.0.0.1:3001` 调用推荐服务
+
+### 10. 开发启动
 
 ```bash
 # 一键启动所有服务
@@ -252,9 +305,9 @@ npx @neteaseapireborn/api server &
 npm run serve
 ```
 
-### 8. 故障排查
+### 11. 故障排查
 
-#### 8.1 404 错误
+#### 11.1 404 错误
 
 **症状**：API 返回 404
 
@@ -267,7 +320,7 @@ npm run serve
    ```
 3. 检查 vue.config.js proxy 配置顺序
 
-#### 8.2 推荐服务不响应
+#### 11.2 推荐服务不响应
 
 **症状**：`/api/recommend` 返回错误
 
@@ -277,7 +330,7 @@ npm run serve
 curl http://localhost:3001/api/recommend?userId=test
 ```
 
-#### 8.3 路由被错误匹配
+#### 11.3 路由被错误匹配
 
 **症状**：`/api/recommend/songs` 被路由到推荐服务
 
@@ -287,16 +340,18 @@ curl http://localhost:3001/api/recommend?userId=test
 
 ---
 
-### 9. 相关文件索引
+### 12. 相关文件索引
 
 | 文件路径 | 用途 |
 |----------|------|
 | `vue.config.js` | Vue CLI 配置，包含 proxy 路由规则 |
 | `src/utils/request.js` | axios 实例，网易云 API 调用基础 |
-| `src/api/recommend.js` | 推荐服务 API 封装 |
+| `src/api/recommend.js` | 推荐服务 API 封装（含路径解析逻辑） |
+| `src/electron/services.js` | Electron 后端服务启动逻辑 |
 | `server/server.js` | 推荐服务 Express 入口 |
 | `server/api/events.js` | 事件追踪 API 实现 |
 | `server/api/recommend.js` | 推荐算法 API 实现 |
 | `server/api/profile.js` | 用户画像 API 实现 |
 | `.env.development` | 开发环境变量 |
+| `.env.production` | 生产环境变量 |
 | `start.sh` | 一键启动脚本 |
