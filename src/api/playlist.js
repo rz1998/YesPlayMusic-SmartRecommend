@@ -50,6 +50,11 @@ export function getPlaylistDetail(id, noCache = false) {
     method: 'get',
     params,
   }).then(data => {
+    // Handle 404 - playlist not found
+    if (data.code === 404 || data.code === 400) {
+      console.warn('Playlist not found:', id);
+      return { playlist: null };
+    }
     if (data.playlist) {
       data.playlist.tracks = mapTrackPlayableStatus(
         data.playlist.tracks,

@@ -92,14 +92,28 @@ export default {
     },
     fetchData() {
       if (!isLooseLoggedIn()) return;
-      this.$store.dispatch('fetchLikedSongs');
-      this.$store.dispatch('fetchLikedSongsWithDetails');
-      this.$store.dispatch('fetchLikedPlaylist');
+      this.$store.dispatch('fetchLikedSongs').catch(err => {
+        console.warn('fetchLikedSongs failed:', err?.message || err);
+      });
+      this.$store.dispatch('fetchLikedSongsWithDetails').catch(err => {
+        console.warn('fetchLikedSongsWithDetails failed:', err?.message || err);
+      });
+      this.$store.dispatch('fetchLikedPlaylist').catch(err => {
+        console.warn('fetchLikedPlaylist failed:', err?.message || err);
+      });
       if (isAccountLoggedIn()) {
-        this.$store.dispatch('fetchLikedAlbums');
-        this.$store.dispatch('fetchLikedArtists');
-        this.$store.dispatch('fetchLikedMVs');
-        this.$store.dispatch('fetchCloudDisk');
+        this.$store.dispatch('fetchLikedAlbums').catch(err => {
+          console.warn('fetchLikedAlbums failed:', err?.message || err);
+        });
+        this.$store.dispatch('fetchLikedArtists').catch(err => {
+          console.warn('fetchLikedArtists failed:', err?.message || err);
+        });
+        this.$store.dispatch('fetchLikedMVs').catch(err => {
+          console.warn('fetchLikedMVs failed:', err?.message || err);
+        });
+        this.$store.dispatch('fetchCloudDisk').catch(err => {
+          console.warn('fetchCloudDisk failed:', err?.message || err);
+        });
       }
     },
     handleScroll() {

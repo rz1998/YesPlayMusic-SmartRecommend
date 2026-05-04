@@ -78,12 +78,17 @@ export default {
     }
   },
   fetchLikedSongsWithDetails: ({ state, commit }) => {
-    return getPlaylistDetail(state.data.likedSongPlaylistID, true).then(
-      result => {
+    // 检查是否有有效的歌单ID
+    if (!state.data.likedSongPlaylistID || state.data.likedSongPlaylistID === 0) {
+      return Promise.resolve();
+    }
+    return getPlaylistDetail(state.data.likedSongPlaylistID, true)
+      .then(result => {
+        if (!result.playlist) {
+          return Promise.resolve();
+        }
         if (result.playlist?.trackIds?.length === 0) {
-          return new Promise(resolve => {
-            resolve();
-          });
+          return Promise.resolve();
         }
         return getTrackDetail(
           result.playlist.trackIds
@@ -96,8 +101,11 @@ export default {
             data: result.songs,
           });
         });
-      }
-    );
+      })
+      .catch(err => {
+        console.warn('fetchLikedSongsWithDetails failed:', err?.message || err);
+        return Promise.resolve();
+      });
   },
   fetchLikedPlaylist: ({ state, commit }) => {
     if (!isLooseLoggedIn()) return;
