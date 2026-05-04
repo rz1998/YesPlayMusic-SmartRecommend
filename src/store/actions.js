@@ -79,7 +79,10 @@ export default {
   },
   fetchLikedSongsWithDetails: ({ state, commit }) => {
     // 检查是否有有效的歌单ID
-    if (!state.data.likedSongPlaylistID || state.data.likedSongPlaylistID === 0) {
+    if (
+      !state.data.likedSongPlaylistID ||
+      state.data.likedSongPlaylistID === 0
+    ) {
       return Promise.resolve();
     }
     return getPlaylistDetail(state.data.likedSongPlaylistID, true)
