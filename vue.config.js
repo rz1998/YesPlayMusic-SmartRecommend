@@ -11,8 +11,25 @@ module.exports = {
     disableHostCheck: true,
     port: process.env.DEV_SERVER_PORT || 8080,
     proxy: {
+      // Recommender API routes → recommender server (3001)
+      '^/api/event': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+        pathRewrite: { '^/api/event': '/' },
+      },
+      '^/api/recommend': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+        pathRewrite: { '^/api/recommend': '/' },
+      },
+      '^/api/user': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+        pathRewrite: { '^/api/user': '/' },
+      },
+      // Netease API routes → Netease API server (10754)
       '^/api': {
-        target: process.env.API_PROXY_TARGET || 'http://localhost:3001',
+        target: 'http://localhost:10754',
         changeOrigin: true,
         pathRewrite: {
           '^/api': '/',
