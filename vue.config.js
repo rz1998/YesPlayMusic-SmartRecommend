@@ -22,11 +22,6 @@ module.exports = {
         changeOrigin: true,
         pathRewrite: { '^/api/recommend': '/' },
       },
-      '^/api/user': {
-        target: 'http://localhost:3001',
-        changeOrigin: true,
-        pathRewrite: { '^/api/user': '/' },
-      },
       // Netease API routes → Netease API server (10754)
       '^/api': {
         target: 'http://localhost:10754',
